@@ -39,7 +39,7 @@ function defaultConfig(){
           {x:882, y:1581, w:486, h:486, shot:7}
         ],
         texts: [],
-        cut: { on:false, x:750, color:"#D8D0CA" }
+        cut: { on:true, x:750, color:"#DE9240" }   // 가운데 절취선, 필름 글씨색 (사용자 요청)
       },
       /* 포토샵 "흑백 3컷 띠 5x7.jsx" 와 같은 숫자입니다. 5×7 세로, 검은 띠(#202020) 2줄 × 흑백 사진 3칸.
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
@@ -57,7 +57,7 @@ function defaultConfig(){
           {x:803, y:1403, w:644, h:666, shot:2, r:16}
         ],
         texts: [],
-        cut: { on:false, x:750, color:"#D8D0CA" }
+        cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
       }
     ]
   };
@@ -223,6 +223,12 @@ function migrate(cfg){
   defaultConfig().layouts.forEach(function(d){
     if (!d.shots) return;
     (cfg.layouts || []).forEach(function(l){ if (l.id === d.id && l.shots === undefined) l.shots = d.shots; });
+  });
+  // 셀프042: 가운데 절취선을 켰습니다. 저장된 설정이 예전 기본값(꺼짐 · #D8D0CA)이면 새 기본값으로 바꿉니다(관리자 화면에서 고친 값은 둠).
+  defaultConfig().layouts.forEach(function(d){
+    (cfg.layouts || []).forEach(function(l){
+      if (l.id === d.id && l.cut && !l.cut.on && l.cut.x === 750 && l.cut.color === "#D8D0CA") l.cut = d.cut;
+    });
   });
   if (cfg.version >= 8){ cfg.version = 22; return cfg; }
 

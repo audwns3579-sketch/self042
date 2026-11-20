@@ -69,5 +69,5 @@ HDMI 로 들어옵니다. 앱은 화면을 64×36 으로 줄여 매 프레임 �
 이 폴더 자체가 git 저장소이고 `audwns3579-sketch/self042` 의 `main` 으로 올라갑니다.
 주소: https://audwns3579-sketch.github.io/self042/
 
-앱 파일을 고치면 `sw.js` 의 `CACHE`(지금 `self042-v5`) 숫자를 올려야 아이패드에 반영됩니다.
+앱 파일을 고치면 `sw.js` 의 `CACHE`(지금 `self042-v6`) 숫자를 올려야 아이패드에 반영됩니다.
 부스 앱과 같은 github.io 주소라서 저장소 이름(IndexedDB `self042`)과 캐시 이름(`self042-…`)을 따로 씁니다.
