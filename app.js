@@ -1904,19 +1904,38 @@ $("againBtn").addEventListener("click", function(){
    사파리가 붙이는 날짜·주소가 없고 한 장에 맞춰집니다(아이패드 시험에서 두 장으로 나뉘고 날짜·주소가 찍혀 바꿈, 사용자 요청). */
 $("printBtn").addEventListener("click", function(){
   if (instaxOn()){ printInstax(); return; }
+  if (relayUrl()){ printEpson(); return; }   // 맥 주소가 있으면 맥이 엡손으로 바로 뽑습니다(인쇄 창 없음)
   if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
 });
+/* 맥의 인화 서버(instax/relay, POST /print-epson)로 보내 엡손 SC-P904 에서 5×7 무테로 바로 뽑습니다(사용자 요청).
+   한 번 보내면 다시 찍기 전까지 막습니다(두 번 눌러 두 장 나가는 것을 막으려는 것). */
+function printEpson(){
+  if (!S.blob || S.printing || S.printed) return;
+  S.printing = true; syncPrintBtn(); say("인화를 보내는 중입니다…", 0);
+  fetch(relayUrl()+"/print-epson", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
+      S.printed = true;
+      say("프린터로 보냈습니다. 잠시 뒤 사진이 나옵니다.", 8000);
+    })
+    .catch(function(e){
+      say("인화를 보내지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인해 주세요.\n("+relayUrl()+" · "+(e && e.message || e)+")", 0);
+    })
+    .then(function(){ S.printing = false; syncPrintBtn(); });
+}
 
 /* ── 인스탁스 인화 — 맥의 인화 서버(instax/relay)로 보냅니다 ── */
 function relayUrl(){ return ((CFG.instax && CFG.instax.relay) || "").trim().replace(/\/+$/, ""); }
 function syncPrintBtn(){
   var b=$("printBtn");
-  b.textContent = !instaxOn() ? "인쇄" : S.printed ? "인화했습니다" : "인화";
-  b.disabled = instaxOn() && (S.printing || S.printed);
+  var direct = instaxOn() || !!relayUrl();   // 맥으로 바로 뽑는 경우(인스탁스·엡손)
+  b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
+  b.disabled = direct && (S.printing || S.printed);
   // 인스탁스는 인화가 주인공입니다. 버튼을 앞으로 빼고 강조합니다.
   b.classList.toggle("primary", instaxOn());
   $("saveBtn").classList.toggle("primary", !instaxOn());
-  $("resultHint").hidden = instaxOn();
+  $("resultHint").hidden = direct;   // "공유 창 → 프린트" 안내는 맥 주소가 없을 때만
 }
 /* 프린터 상태 한 줄 — 남은 필름과 배터리. 맥을 거쳐 블루투스로 묻습니다(몇 초 걸립니다). */
 function fetchStatus(){
