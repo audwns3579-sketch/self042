@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans+KR:wght@300;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans+KR:wght@300;500;700&family=Gothic+A1:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=DM+Serif+Display:ital@0;1&family=Italiana&display=swap">
 <style>
 /* 암실(darkroom) 콘셉트: 손님 화면은 전면 뷰파인더, 관리자 화면은 좌우 2단 편집기 */
 :root{
@@ -37,21 +37,46 @@ img{max-width:100%}
 
 .screen{
   position:fixed; inset:0; display:flex; flex-direction:column;
+  background:var(--ink); color:var(--fg); font-family:var(--body);
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
 }
 
+/* ── 손님 화면 디자인 3가지 — 관리자 "화면 디자인" 에서 고릅니다(body data-theme, app.js setTheme).
+   변수는 손님 화면(.screen, 관리자 빼고)에만 덮어써서 관리자 화면은 그대로입니다.
+   --onaccent: 강조색 버튼 위 글씨, --sel: 고른 카드·버튼 바탕, --glow: 시작 화면 위쪽 빛, --bradius: 버튼 둥글기 */
+body[data-theme=light] .screen:not(#admin){
+  --ink:#FBF8F3; --panel:#FFFFFF; --panel2:#F4EEE6; --line:#E6DCCF; --fg:#26211C; --muted:#978B80;
+  --safelight:#FF7A59; --lamp:#E8603F; --onaccent:#FFFFFF; --sel:#FFF3EE; --glow:#FFE4D6;
+  --display:'Gothic A1',sans-serif; --body:'Gothic A1',-apple-system,sans-serif; --radius:22px; --bradius:999px;
+  color-scheme:light; font-weight:400}
+body[data-theme=light] #brandEdit{font-weight:800}
+body[data-theme=vintage] .screen:not(#admin){
+  --ink:#EADFCB; --panel:#F5EDDD; --panel2:#EFE4D0; --line:#C3AD8B; --fg:#3A2A1D; --muted:#7F6A55;
+  --safelight:#9C3B2A; --lamp:#9C3B2A; --onaccent:#F5EDDD; --sel:#F3E4D3; --glow:rgba(255,250,236,.75);
+  --display:'DM Serif Display',serif; --body:'Nanum Myeongjo',serif; --radius:6px; --bradius:6px;
+  color-scheme:light; font-weight:400}
+body[data-theme=vintage] .mode{border-style:dashed}
+body[data-theme=vintage] .mode[aria-pressed=true]{border-style:solid}
+body[data-theme=vintage] #brandEdit{font-style:italic;letter-spacing:.01em}
+body[data-theme=dark] .screen:not(#admin){
+  --ink:#0D0D0D; --panel:#161616; --panel2:#1E1E1E; --line:#2E2B28; --fg:#F2F0EC; --muted:#8A857E;
+  --safelight:#D8BD8A; --lamp:#D8BD8A; --onaccent:#141210; --sel:#1F1B14; --glow:#221D15;
+  --display:'Italiana',serif; --body:'IBM Plex Sans KR',-apple-system,sans-serif; --radius:3px; --bradius:2px}
+body[data-theme=dark] #brandEdit{letter-spacing:.28em;width:auto;font-weight:400}
+body[data-theme=dark] .ask{font-weight:300;letter-spacing:.04em}
+
 /* ── 공통 ─────────────────────────────── */
 .eyebrow{font-size:12px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0}
 button{font-family:inherit;font-weight:500;cursor:pointer;border:0;background:none;color:inherit}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  min-height:52px;padding:0 20px;border-radius:4px;font-size:16px;
+  min-height:52px;padding:0 20px;border-radius:var(--bradius,4px);font-size:16px;
   background:var(--panel);color:var(--fg);border:1px solid var(--line);
   transition:transform .12s ease,border-color .12s ease}
 .btn:active{transform:scale(.97)}
-.btn.primary{background:var(--safelight);color:#1A0A06;border-color:var(--safelight);font-weight:700}
+.btn.primary{background:var(--safelight);color:var(--onaccent,#1A0A06);border-color:var(--safelight);font-weight:700}
 .btn.ghost{background:transparent}
 .btn.sm{min-height:40px;padding:0 13px;font-size:13px}
 .btn.danger{color:var(--safelight);border-color:#4A211A}
@@ -69,32 +94,35 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 /* 손님 화면은 전부 가운데 정렬. 키오스크라 글씨와 누르는 곳을 크게 둡니다. */
 #setup{justify-content:center;align-items:center;text-align:center;
   gap:clamp(22px,4vh,44px);overflow-y:auto;padding-block:26px;
-  background:radial-gradient(ellipse 70% 55% at 50% 0%,#2A1410 0%,transparent 70%),var(--ink)}
+  background:radial-gradient(ellipse 70% 55% at 50% 0%,var(--glow,#2A1410) 0%,transparent 70%),var(--ink)}
 .setup-head{display:flex;flex-direction:column;gap:6px;align-items:center}
-#brandEdit{font-family:var(--display);font-size:clamp(34px,5vw,52px);letter-spacing:.06em;
+#brandEdit{font-family:var(--display);font-size:clamp(40px,5.6vw,66px);letter-spacing:.06em;
   background:none;border:0;border-bottom:1px dashed transparent;color:var(--fg);
   padding:0;width:11ch;max-width:100%;line-height:1.1;text-align:center}
 #brandEdit:focus{outline:none;border-bottom-color:var(--safelight)}
 .note{font-size:15px;color:var(--muted);line-height:1.6}
 .note b{color:var(--fg);font-weight:500}
 .field{display:flex;flex-direction:column;gap:18px;align-items:center;width:100%}
-#setup .field .eyebrow{font-size:14px}
-.ask{margin:0;font-size:clamp(24px,3.4vw,34px);font-weight:700;letter-spacing:-.01em}
+#setup .field .eyebrow{font-size:15px}
+#setup > .setup-head .eyebrow{font-size:15px}
+.ask{margin:0;font-size:clamp(28px,3.8vw,44px);font-weight:700;letter-spacing:-.01em}
 /* 카드 200px × 5장 + 틈 = 1056px — 아이패드 가로(1133~1366)에서 한 줄에 다 들어갑니다 */
-.modes{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
-.setup-nav{display:flex;gap:12px;width:min(100%,560px)}
+.modes{display:flex;flex-wrap:wrap;gap:40px;justify-content:center}
+.setup-nav{display:flex;gap:12px;width:min(100%,600px)}
 .setup-nav:not(:has(.btn:not([hidden]))){display:none}
-.setup-nav .btn{flex:1;min-height:64px;font-size:19px}
+.setup-nav .btn{flex:1;min-height:76px;font-size:24px}
 /* 카드는 같은 크기로 — 그림 위, 이름 아래 */
-.mode{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:space-between;
-  width:200px;padding:22px 12px 18px;flex:none;
-  border:2px solid var(--line);border-radius:14px;background:var(--panel);text-align:center;min-width:0;
+/* 카드 330px × 2장 — 아이패드 가로에서 크게 보이게 키웠습니다(사용자 요청) */
+.mode{display:flex;flex-direction:column;gap:18px;align-items:center;justify-content:space-between;
+  width:330px;padding:26px 20px 22px;flex:none;
+  border:3px solid var(--line);border-radius:var(--radius,14px);background:var(--panel);text-align:center;min-width:0;
+  box-shadow:0 14px 40px rgba(0,0,0,.18);
   transition:transform .12s ease,border-color .12s ease}
 .mode:active{transform:scale(.97)}
 .mode > .mini, .mode > .cam{margin:auto 0;box-shadow:0 10px 26px rgba(0,0,0,.5)}
-.mode[aria-pressed=true]{border-color:var(--safelight);background:#241715}
-.mode-name{font-size:22px;font-weight:700;line-height:1.3}
-.mode-sub{font-size:14px;color:var(--muted)}
+.mode[aria-pressed=true]{border-color:var(--safelight);background:var(--sel,#241715)}
+.mode-name{font-size:30px;font-weight:700;line-height:1.3}
+.mode-sub{font-size:18px;color:var(--muted)}
 .mini{background:#fff;border-radius:2px;flex:none;position:relative;overflow:hidden}
 .mini i{position:absolute;background:#C9BDB4}
 /* 카메라 그림 — 올려두면 인화지 모양 대신 보입니다 */
@@ -112,9 +140,9 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .sw.none{background:
   repeating-linear-gradient(45deg,#fff 0 7px,#eceae8 7px 14px)}
 .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.chip{padding:14px 24px;border-radius:999px;font-size:18px;border:1px solid var(--line);
+.chip{padding:16px 28px;border-radius:999px;font-size:20px;border:1px solid var(--line);
   background:var(--panel);color:var(--muted)}
-.chip[aria-pressed=true]{border-color:var(--lamp);color:var(--lamp);background:#231B10}
+.chip[aria-pressed=true]{border-color:var(--lamp);color:var(--lamp);background:var(--sel,#231B10)}
 .chip:disabled{opacity:.35}
 /* 컷 버튼 줄: 컷 버튼 + 색감 버튼. 좁으면 줄을 바꿉니다 */
 .pick-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px}
@@ -122,8 +150,6 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .pick-sep{width:1px;height:26px;background:var(--line)}
 #pickLooks .chip{max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 14px;font-size:15px}
 .fmt{font-size:13px;letter-spacing:.04em;color:var(--lamp)}
-#pickEmpty{font-size:17px;color:var(--fg);max-width:34ch;white-space:pre-line;overflow-wrap:anywhere}
-#importBtn{min-height:64px;font-size:19px;padding:0 36px}
 
 /* ── 2. 촬영 ──────────────────────────── */
 #shoot{justify-content:center;align-items:center;gap:16px;padding-block:18px}
@@ -161,34 +187,31 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
    - 필름 미리보기는 창에 들어가는 가장 큰 크기입니다(사용자 요청). 창 높이에서 제목·컷 버튼·인화 버튼 자리(170px,
      가로·세로 버튼이 있으면 230px)를 뺀 높이가 필름 높이이고, 오른쪽 칸 너비도 넘지 않게 합니다.
      창이 이보다 더 작으면 잘리지 않고 화면이 스크롤됩니다. */
+/* 가로 화면: 왼쪽에 찍은 사진을 2줄로 크게(아래로 내려 봄), 오른쪽에 인화 미리보기·완성 버튼(사용자 요청, 인스탁스 고르기처럼).
+   왼쪽 목록만 자기 칸 안에서 스크롤하고 오른쪽은 그대로입니다. */
 @media (min-aspect-ratio:1/1){
-  #pick{padding-block:12px;gap:8px}
-  #pick .ask{font-size:clamp(17px,2.2vw,24px);line-height:1.25}
-  .pick-body{flex:1 1 0;min-height:340px;flex-wrap:nowrap;gap:28px}
-  .pick-left{flex:0 0 clamp(280px,34vw,420px);align-self:stretch;min-height:0;justify-content:flex-start}
+  #pick{padding-block:16px;gap:12px}
+  #pick .ask{font-size:clamp(22px,2.6vw,32px);line-height:1.25}
+  .pick-body{flex:1 1 0;min-height:340px;flex-wrap:nowrap;gap:32px;align-items:stretch}
+  .pick-left{flex:1 1 auto;min-width:0;align-self:stretch;min-height:0;justify-content:flex-start}
   .pick-left .pick-grid{width:100%;flex:1 1 auto;min-height:0;max-height:none;align-content:start}
-  .pick-side{flex:none;gap:10px;max-width:calc(100vw - 60px - clamp(280px,34vw,420px))}
-  .pick-actions .btn{min-height:50px;font-size:17px}
-  #pick.instax #pickFrames .chip{padding:9px 18px}
-  #pick.instax .pick-side .film{--fw:min(calc((100vh - 133px - var(--rowh,37px)) * 1.256), calc(100vw - 60px - clamp(280px,34vw,420px)))}
-  #pick.instax .pick-side .film.v{--fw:min(calc((100vh - 133px - var(--rowh,37px)) * .796), calc(100vw - 60px - clamp(280px,34vw,420px)))}
-  #pick.instax.withOrient .pick-side .film{--fw:min(calc((100vh - 193px - var(--rowh,37px)) * 1.256), calc(100vw - 60px - clamp(280px,34vw,420px)))}
-  #pick.instax.withOrient .pick-side .film.v{--fw:min(calc((100vh - 193px - var(--rowh,37px)) * .796), calc(100vw - 60px - clamp(280px,34vw,420px)))}
-  #pick.instax .pick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pick-side{flex:0 0 clamp(300px,32vw,400px);gap:14px;justify-content:center}
+  #pick #pickPrev{max-height:calc(100vh - 220px);max-width:100%}
+  .pick-actions .btn{min-height:64px;font-size:20px}
 }
 #pickPrev{cursor:grab;touch-action:none;max-height:62vh;max-width:min(42vw,100%);width:auto;background:#fff;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
-.pick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:min(100%,540px);max-height:46vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px;
+.pick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:min(100%,720px);max-height:46vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px;
   grid-auto-rows:max-content}   /* 칸 높이가 정해져 있어도 줄이 칸에 맞춰 눌리지 않게(눌리면 사진이 서로 겹칩니다) */
 /* 세로로 세운 화면: 사진 목록 높이·폭을 고정해서(넘치면 목록 안에서 스크롤) 사진 수와 상관없이 미리보기 자리가 안 움직입니다.
    위의 기본 .pick-grid 규칙보다 뒤에 둬야 덮어쓰지 않습니다. */
-@media (max-aspect-ratio:1/1){ .pick-grid{height:26vh;max-height:none;align-content:start;width:min(calc(100vw - 32px),540px)} }
-.pk{position:relative;aspect-ratio:var(--ar);align-self:start;padding:0;border:3px solid var(--line);
-  border-radius:5px;overflow:hidden;background:#000}
+@media (max-aspect-ratio:1/1){ .pick-grid{height:40vh;max-height:none;align-content:start;width:min(calc(100vw - 32px),720px)} }
+.pk{position:relative;aspect-ratio:var(--ar);align-self:start;padding:0;border:4px solid var(--line);
+  border-radius:calc(var(--radius,8px) * .6);overflow:hidden;background:#000}
 .pk[aria-pressed=true]{border-color:var(--safelight)}
 .pk canvas{width:100%;height:100%;object-fit:cover;display:block}
-.pk .no{position:absolute;top:5px;left:5px;min-width:26px;height:26px;border-radius:13px;
-  background:var(--safelight);color:#1A0A06;font-weight:700;font-size:14px;
+.pk .no{position:absolute;top:10px;left:10px;min-width:44px;height:44px;border-radius:22px;
+  background:var(--safelight);color:var(--onaccent,#1A0A06);font-weight:700;font-size:24px;
   display:flex;align-items:center;justify-content:center}
 .pk .no:empty{display:none}
 .btn:disabled{opacity:.4}
@@ -339,11 +362,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
            autocomplete="off" autocapitalize="characters" spellcheck="false">
   </div>
   <div class="field" data-step="1">
-    <h2 class="ask" id="step1Title">어떤 사진을 뽑을까요?</h2>
+    <h2 class="ask" id="step1Title">프레임 골라주세요.</h2>
     <div class="modes" id="modes" role="group" aria-label="인화 방식"></div>
-    <!-- 맥에서 보내준 사진으로 만들기 — 카메라 없이 사진을 불러와 고르기 화면으로 갑니다 -->
-    <button class="btn ghost" id="importBtn" hidden>찍어 둔 사진으로 만들기</button>
-    <input type="file" id="importFile" accept="image/*" multiple hidden>
   </div>
   <div class="field" data-step="2" hidden>
     <h2 class="ask" id="step2Title">배경을 골라주세요</h2>
@@ -393,11 +413,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <h2 class="ask" id="pickTitle">사진 고르기</h2>
   <div class="pick-body">
     <div class="pick-left">
-      <p class="hint" id="pickEmpty" hidden></p>
       <div class="pick-grid" id="pickGrid" role="group" aria-label="찍은 사진"></div>
       <p class="hint">누른 순서대로 1번 칸, 2번 칸에 들어갑니다. 다시 누르면 빠집니다.<br>오른쪽 미리보기에서 사진을 끌면 옮겨지고, 휠·핀치로 키울 수 있습니다.</p>
-      <!-- 맥에서 사진이 안 올 때를 위한 길: 아이패드 사진 앱에서 직접 고릅니다 -->
-      <button class="btn ghost sm" id="pickFromPhotos" hidden>사진 앱에서 고르기</button>
     </div>
     <div class="pick-side">
       <div class="chips" id="pickOrient" role="group" aria-label="방향" hidden></div>
@@ -452,6 +469,17 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     </div>
     <div class="adm-side">
 
+      <!-- 손님 화면 디자인 3가지(사용자 요청). 관리자 화면은 그대로입니다. app.js setTheme -->
+      <div class="card">
+        <h3>화면 디자인</h3>
+        <div class="row" id="themePick" role="group" aria-label="화면 디자인">
+          <button class="btn sm" data-theme="light">밝음</button>
+          <button class="btn sm" data-theme="vintage">빈티지</button>
+          <button class="btn sm" data-theme="dark">다크 시크</button>
+        </div>
+        <p class="note">손님이 보는 화면(시작·촬영·고르기·결과)의 색과 글씨가 바뀝니다. 인화되는 사진은 그대로입니다.</p>
+      </div>
+
       <div class="card">
         <h3>카메라</h3>
         <select id="camPick" aria-label="쓸 카메라"><option value="">기본 카메라</option></select>
@@ -468,15 +496,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
         <!-- 셀프042: 이 주소가 있으면 결과 화면의 인화 버튼이 맥을 거쳐 엡손으로 바로 뽑습니다(POST /print-epson) -->
         <label class="lab">인화 맥 주소<input type="url" id="relayUrl" placeholder="https://studio042s-iMac.local:8443"
                autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-        <label class="lab" style="flex-direction:row;align-items:center;gap:9px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--fg)">
-          <input type="checkbox" id="liveOn" style="width:auto"> 화면을 누르면 바로 사진 고르기 (맥의 <b>부스 사진</b> 폴더에서 실시간으로 받기)
-        </label>
         <div class="row">
           <button class="btn sm" id="relayCheck">연결 확인</button>
         </div>
-        <p class="note" id="relayNote">손님이 시작 화면에서 <b>인스탁스 가로·세로</b>를 고르면 라이브뷰 없이 찍고,
-        컷 수와 사진을 골라 이 맥으로 인화합니다. 프레임 모양은 인화 방식 목록의 <b>와이드 …</b> 를 편집하고,
-        손님에게 숨기려면 그 프레임들의 <b>손님 화면에 보이기</b>를 끕니다.</p>
+        <p class="note" id="relayNote">주소가 있으면 결과 화면의 <b>인화</b>를 누를 때 이 맥이 엡손으로 5×7 무테를 바로 뽑습니다.
+        비워 두면 공유 창 → 프린트로 뽑습니다.</p>
       </div>
 
       <div class="card">
@@ -511,9 +535,6 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
         <label class="lab">이름<input type="text" id="fName" maxlength="12"></label>
         <label class="lab" style="flex-direction:row;align-items:center;gap:9px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--fg)">
           <input type="checkbox" id="fEnabled" style="width:auto"> 촬영 화면에서 손님이 고르는 보정으로 보이기 (카메라로 찍는 흐름)
-        </label>
-        <label class="lab" style="flex-direction:row;align-items:center;gap:9px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--fg)">
-          <input type="checkbox" id="fPick" style="width:auto"> <b>사진 고르기 화면에 색감 버튼으로 보이기</b> (컷 버튼 옆, 최대 3개)
         </label>
 
         <div class="sliders" id="fSliders"></div>
@@ -566,56 +587,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
           <input type="checkbox" id="admEnabled" style="width:auto"> 손님 화면에 보이기
         </label>
         <label class="lab">필름 (이 인화 방식의 보정)<select id="admLook"></select></label>
-        <div class="row">
-          <span class="bgthumb" id="admIconThumb" style="background-size:contain;background-repeat:no-repeat">없음</span>
-          <label class="btn sm filepick">카메라 그림 올리기<input type="file" id="admIcon" accept="image/*"></label>
-          <button class="btn sm ghost" id="admIconDel">그림 지우기</button>
-        </div>
         <p class="note"><b>필름</b>을 정해두면 손님이 이 인화 방식을 고를 때 그 보정이 같이 정해지고,
-        보정 고르기는 건너뜁니다. <b>카메라 그림</b>을 올리면 시작 화면에 인화지 모양 대신 그 그림이 보입니다.
-        배경이 투명한 PNG가 가장 깔끔합니다.</p>
-      </div>
-
-      <div class="card">
-        <h3>인화지 크기</h3>
-        <select id="admPreset">
-          <option value="1200x1800">4×6 세로 (1200 × 1800)</option>
-          <option value="1800x1200">4×6 가로 (1800 × 1200)</option>
-          <option value="1500x1500">정사각 5×5 (1500 × 1500)</option>
-          <option value="900x2700">긴 스트립 (900 × 2700)</option>
-          <option value="1276x1016">인스탁스 와이드 (1276 × 1016)</option>
-          <option value="custom">직접 입력</option>
-        </select>
-        <div class="grid2">
-          <label class="lab">가로 px<input type="number" id="admW" min="200" max="6000" step="10"></label>
-          <label class="lab">세로 px<input type="number" id="admH" min="200" max="6000" step="10"></label>
-        </div>
-        <p class="note">300dpi 기준입니다. 1200 × 1800 이면 4 × 6 인치로 인쇄됩니다.</p>
-      </div>
-
-      <div class="card">
-        <h3>배경 목록</h3>
-        <p class="note">여기 올린 배경은 모든 인화 방식이 함께 씁니다.
-        손님이 <b>시작 화면</b>에서 직접 고릅니다.
-        배경 하나에 <b>가로</b>·<b>세로</b> 두 장을 올려두면 인화 방식 방향에 맞는 쪽을 알아서 씁니다.</p>
-        <div id="bgList"></div>
-        <div class="row">
-          <button class="btn sm" id="bgAdd">배경 추가</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>프레임</h3>
-        <div class="row">
-          <label class="btn sm filepick">프레임 올리기<input type="file" id="admFrame" accept="image/*"></label>
-          <button class="btn sm ghost" id="admFrameDel">프레임 지우기</button>
-        </div>
-        <div class="row">
-          <label class="lab">지금 배경<select id="admBgSel"></select></label>
-        </div>
-        <p class="note"><b>프레임</b>은 사진 위에 덮이므로 투명 PNG를 쓰세요.
-        인화 방식마다 따로 올립니다. <b>지금 배경</b>은 손님 화면에서 고른 배경과 같은 값이라,
-        여기서 바꿔도 시작 화면에 바로 반영됩니다.</p>
+        보정 고르기는 건너뜁니다.</p>
       </div>
 
       <div class="card">

@@ -17,6 +17,7 @@ function defaultConfig(){
     // 인스탁스는 이 아이패드 부스에서 쓰지 않습니다(사용자 요청). 주소를 비워 두어 인스탁스 화면이 안 나옵니다.
     instax: { relay:"", live:false },
     shootMode: "pick",   // 한 팀 10장 찍고 골라 넣기(사용자 요청)
+    theme: "dark",       // 손님 화면 디자인: light 밝음 / vintage 빈티지 / dark 다크 시크 (관리자에서 고름, 사용자 요청)
     filters: defaultFilters(),
     backgrounds: [],     // 배경 목록 {id,name,h,v}
     bgId: null,          // 지금 고른 배경 (모든 인화 방식이 함께 씁니다)
@@ -108,9 +109,6 @@ var BLEND_MODES = [
 var TIMERS = [3,5,10];
 /* 촬영 방식 — fixed: 칸 수만큼만 찍고 바로 합성 / pick: 여러 장 찍은 뒤 손님이 골라서 합성 */
 var SHOOT_MODES = [{id:"fixed", name:"정해진 컷만"}, {id:"pick", name:"많이 찍고 고르기"}];
-/* 불러온 사진은 촬영(grabFull)과 같은 1600px 로 줄입니다. 후지 원본(6240×4160)을 그대로 두면
-   캔버스 메모리가 넘칩니다. 12장이면 촬영 8장과 비슷한 메모리입니다. */
-var IMPORT_LONG = 1600, IMPORT_MAX = 12;
 var PICK_SHOTS = 10;    // 많이 찍고 고르기에서 찍는 장 수 (한 팀 10장, 사용자 요청)
 /* 구글 드라이브 QR — drive/Code.gs 를 구글 계정에 올리고 받은 "웹 앱 URL" 을 DRIVE_URL 에 넣습니다(README).
    비어 있으면 QR 을 만들지 않습니다. DRIVE_KEY 는 Code.gs 의 KEY 와 같아야 합니다. */
@@ -339,7 +337,7 @@ function show(el){ [setupEl,shootEl,pickEl,resultEl,adminEl].forEach(function(s)
   var film = instaxOn() && (el===pickEl || el===resultEl);
   pickEl.classList.toggle("instax", film); resultEl.classList.toggle("instax", film);
   $("printerLine").hidden = !film || !relayUrl();
-  if (el===resultEl){ syncPrintBtn(); $("againBtn").textContent = liveSession ? "끝내기" : "다시 찍기"; } }
+  if (el===resultEl){ syncPrintBtn(); } }
 /* 미리보기 필름 방향 — 세로 프레임이면 두꺼운 띠가 옆으로 갑니다 */
 function setFilm(L){
   var v = !!L && !isLandscape(L);
@@ -405,48 +403,38 @@ function resolveText(s){
 /* ══════════════════════════════════════════
    손님 화면
    ══════════════════════════════════════════ */
-var MINI_LONG = 168;   // 미리보기 네모의 긴 쪽 길이(px)
-function miniHtml(L, idx){
-  var scale = MINI_LONG / Math.max(L.canvas.w, L.canvas.h);
-  var w = Math.round(L.canvas.w*scale), h = Math.round(L.canvas.h*scale);
-  var html = '<span class="mini" data-mini="'+idx+'" style="width:'+w+'px;height:'+h+'px">';
-  L.slots.slice(0,16).forEach(function(s){
-    html += '<i style="left:'+(s.x/L.canvas.w*100)+'%;top:'+(s.y/L.canvas.h*100)+'%;'+
-            'width:'+(s.w/L.canvas.w*100)+'%;height:'+(s.h/L.canvas.h*100)+'%"></i>';
+var MINI_LONG = 300;   // 첫 화면 카드의 프레임 그림 긴 쪽 길이(px). 아이패드 가로에서 크게 보이게 키웠습니다(사용자 요청)
+/* 첫 화면 카드에 실제 인화 모양(필름 띠·흑백 띠·절취선)을 작게 그립니다. 사진 칸은 회색으로 비워 둡니다. */
+function miniHtml(L){
+  var k = MINI_LONG / Math.max(L.canvas.w, L.canvas.h);
+  var c = document.createElement("canvas");
+  c.width = Math.round(L.canvas.w*k); c.height = Math.round(L.canvas.h*k);
+  var ctx = c.getContext("2d");
+  ctx.scale(k, k);
+  if (L.style === "film") drawFilmBack(ctx, L);
+  else { ctx.fillStyle = L.style === "bw" ? BW_STRIP : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
+  ctx.fillStyle = "#C9BDB4";
+  L.slots.forEach(function(s){
+    if (s.r){ roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.fill(); } else ctx.fillRect(s.x, s.y, s.w, s.h);
   });
-  return html+'<b data-minifr="'+idx+'"></b></span>';
+  if (L.style === "film") drawFilmText(ctx, L);
+  if (L.cut && L.cut.on){
+    ctx.strokeStyle = L.cut.color; ctx.lineWidth = 4; ctx.setLineDash([22, 22]);
+    ctx.beginPath(); ctx.moveTo(L.cut.x, 40); ctx.lineTo(L.cut.x, L.canvas.h-40); ctx.stroke();
+  }
+  var url = c.toDataURL("image/jpeg", 0.9); free(c);
+  return '<img class="mini" src="'+url+'" alt="" style="width:'+Math.round(L.canvas.w*k)+'px;height:'+Math.round(L.canvas.h*k)+'px">';
 }
-/* 인스탁스 와이드 필름 108 × 86mm 에 사진 창 99 × 62mm. 세로로 들면 두꺼운 띠(18mm)가 왼쪽입니다. */
-var FILM_MINI = {
-  h: { canvas:{w:1080, h:860}, slots:[{x:45,  y:60, w:990, h:620}] },
-  v: { canvas:{w:860, h:1080}, slots:[{x:180, y:45, w:620, h:990}] }
-};
 function buildModes(){
   var list = normalLayouts();
-  var films = ["h","v"].filter(function(o){ return instaxFrames(o).length; });
-  if (!list.length && !films.length){ $("modes").innerHTML = '<p class="note">보이도록 켜둔 인화 방식이 없습니다. 관리자 화면에서 켜주세요.</p>'; return; }
-  syncIdle();
-  if (instaxOrient && films.indexOf(instaxOrient) < 0) instaxOrient = null;
-  if (!instaxOn() && !list.length) instaxOrient = films[0];
-  if (cur >= enabledLayouts().length) cur = 0;
+  if (!list.length){ $("modes").innerHTML = '<p class="note">보이도록 켜둔 인화 방식이 없습니다. 관리자 화면에서 켜주세요.</p>'; return; }
+  instaxOrient = null;
+  if (cur >= list.length) cur = 0;
   $("modes").innerHTML = list.map(function(L,i){
-    var look = lookOf(L);
-    return '<button class="mode" data-i="'+i+'" aria-pressed="'+(!instaxOn() && i===cur)+'">'+
-      (L.icon ? '<img class="cam" data-cam="'+i+'" alt="">' : miniHtml(L, i))+
-      '<span style="min-width:0"><span class="mode-name">'+L.name+'</span><br>'+
-      '<span class="mode-sub">'+shotCount(L)+'컷'+(look ? ' · '+escapeHtml(look.name) : '')+'</span></span></button>';
-  }).join("") + films.map(function(o){
-    var cuts = instaxFrames(o).map(shotCount).join("·");
-    return '<button class="mode" data-o="'+o+'" aria-pressed="'+(instaxOrient===o)+'">'+miniHtml(FILM_MINI[o], o)+
-      '<span style="min-width:0"><span class="mode-name">인스탁스 '+(o==="h" ? "가로" : "세로")+'</span><br>'+
-      '<span class="mode-sub">찍고 나서 '+cuts+'컷 고르기</span></span></button>';
+    return '<button class="mode" data-i="'+i+'" aria-pressed="'+(i===cur)+'">'+miniHtml(L)+
+      '<span style="min-width:0"><span class="mode-name">'+escapeHtml(L.name)+'</span><br>'+
+      '<span class="mode-sub">'+shootTotal(L)+'장 찍고 '+shotCount(L)+'장 고르기</span></span></button>';
   }).join("");
-  paintMiniBackgrounds(list);
-  list.forEach(function(L,i){
-    if (L.icon) getImage(L.icon).then(function(b){
-      var el=document.querySelector('img[data-cam="'+i+'"]'); if (el && b) el.src=b.url;
-    });
-  });
   syncLook();
   updateShotNote();
   syncIdle();
@@ -465,24 +453,6 @@ function syncLook(){
   if (CFG.filter!==id){
     CFG.filter = id; pressOnly($("filters"), CFG.filter); saveConfig(); applyPreviewFilter();
   }
-}
-
-/* 인화 방식 미리보기 네모에 고른 배경과 프레임을 깔아줍니다 */
-function paintMiniBackgrounds(list){
-  list.forEach(function(L, i){
-    var el = document.querySelector('.mini[data-mini="'+i+'"]');
-    if (!el) return;
-    var key = bgKeyFor(L);
-    if (!key){ el.style.backgroundImage = "none"; }
-    else getImage(key).then(function(b){
-      var e2 = document.querySelector('.mini[data-mini="'+i+'"]');
-      if (e2) e2.style.backgroundImage = b ? 'url('+b.url+')' : "none";
-    });
-    getImage(L.frame).then(function(f){
-      var e3 = document.querySelector('b[data-minifr="'+i+'"]');
-      if (e3) e3.style.backgroundImage = f ? 'url('+f.url+')' : "none";
-    });
-  });
 }
 
 /* 시작 화면의 배경 고르기 줄 */
@@ -524,7 +494,6 @@ $("bgPick").addEventListener("click", function(e){
   CFG.bgId = b.dataset.b || null;
   saveConfig();
   buildBgPick();
-  buildModes();          // 미리보기 네모를 새 배경으로 다시 그립니다
   showStep(3);
 });
 function updateShotNote(){
@@ -568,16 +537,11 @@ $("backBtn").addEventListener("click", function(){ showStep(step-1); });
    바로 사진 고르기 화면으로 가고(가로·세로 버튼은 고르기 화면에 두지 않습니다), 아니면 예전처럼 배경·보정·카메라 순서로 갑니다.
    관리자 화면은 이 화면 맨 위 이름 글씨를 길게 눌러 엽니다. */
 function syncIdle(){
-  var live = liveOn();
-  $("importBtn").hidden = live || !instaxOrients().length;   // 실시간 받기 중에는 고르기 화면의 "사진 앱에서 고르기"가 대신합니다
-  $("step1Title").textContent = live ? "가로·세로를 골라주세요" : "어떤 사진을 뽑을까요?";
-  // 실시간 받기에서는 카드가 곧 "고르기" 버튼이라, 이미 골라진 것처럼 테두리가 미리 들어와 있지 않게 합니다
-  if (live) Array.prototype.forEach.call($("modes").children, function(x){ x.setAttribute("aria-pressed", "false"); });
+  $("step1Title").textContent = "프레임 골라주세요.";
 }
 
 $("modes").addEventListener("click", function(e){
   var b=e.target.closest(".mode"); if(!b) return;
-  if (b.dataset.o && liveOn()){ openLive(b.dataset.o); return; }
   instaxOrient = b.dataset.o || null;
   cur = instaxOn() ? 0 : Number(b.dataset.i);
   Array.prototype.forEach.call($("modes").children, function(x){
@@ -1307,20 +1271,6 @@ function ticks(done,total){
   var h=""; for (var i=0;i<total;i++) h+='<span class="tick'+(i<done?" done":"")+'"></span>';
   $("ticks").innerHTML=h;
 }
-function countdown(sec){
-  var n=sec;
-  $("count").hidden=false; $("countCue").textContent="준비";
-  return new Promise(function(resolve){
-    (function step(){
-      if (S.cancelled) return resolve();
-      if (S.enough){ $("count").hidden=true; return resolve(); }   // "다 찍었어요"를 누르면 세던 것도 멈춥니다
-      $("countNum").textContent=n;
-      if (n<=1) $("countCue").textContent="찰칵";
-      if (n<=0){ $("count").hidden=true; return resolve(); }
-      n--; setTimeout(step,1000);
-    })();
-  });
-}
 function flash(){
   var f=$("flash"); f.classList.add("on");
   return wait(80).then(function(){ f.classList.remove("on"); });
@@ -1515,9 +1465,7 @@ function setPrintPage(L){
 /* ── 사진 고르기 ──────────────────────────
    찍은 사진을 격자로 보여주고, 손님이 누른 순서대로 1번 칸, 2번 칸… 에 넣습니다.
    고를 때마다 인화지를 다시 그려 왼쪽에 보여줍니다. */
-var P = { L:null, need:0, picks:[], url:null, token:0, look:null,
-          live:false, liveId:0, timer:null, seen:{}, fails:0, err:"", maxStamp:0 };
-var liveSession = false;   // 이번 손님이 맥에서 실시간으로 받은 사진으로 만들고 있는지
+var P = { L:null, need:0, picks:[], url:null, token:0, look:null };
 var orientFixed = false;   // 가로·세로를 첫 화면에서 골랐는지(그러면 고르기 화면에 가로·세로 버튼을 안 둡니다)
 /* 컷 버튼 옆의 색감 버튼 — 관리자에서 '고르기 화면에 보이기'를 켠 보정(최대 3개).
    카메라로 찍은 사진은 찍을 때 보정이 이미 들어갔으니, 불러온·실시간 사진(P.imported)일 때만 보입니다. */
@@ -1564,11 +1512,9 @@ function openPick(L, need, imported){
   $("pickOrient").hidden = !P.imported || orientFixed;
   pickEl.classList.toggle("withOrient", !$("pickOrient").hidden);   // 가로·세로 버튼이 있으면 필름을 조금 작게(자리 확보)
   if (P.imported && !orientFixed) buildChips($("pickOrient"), instaxOrients().map(function(o){ return {id:o, name:o==="h" ? "가로" : "세로"}; }), instaxOrient, false);
-  if (instaxOn()){ pickChips(); printerStatus(); }
   pickLookId = null; lookChips();      // 손님마다 첫 번째 색감에서 시작합니다
   $("pickGrid").innerHTML = "";
   S.shots.forEach(function(c, i){ addPickThumb(c, i); });
-  $("pickFromPhotos").hidden = true; $("pickEmpty").hidden = true;   // 맥에서 받는 중일 때만 openLive 가 켭니다
   show(pickEl);
   fitPick();
   refreshPick();
@@ -1579,7 +1525,7 @@ function refreshPick(){
     b.setAttribute("aria-pressed", String(at>=0));
     b.lastChild.textContent = at>=0 ? at+1 : "";
   });
-  $("pickTitle").textContent = (instaxOn() ? "컷 수와 사진을 골라주세요 — " : "사진을 골라주세요 — ")+P.picks.length+" / "+P.need;
+  $("pickTitle").textContent = "마음에 드는 사진을 골라주세요 · "+P.picks.length+" / "+P.need;
   $("pickDone").disabled = P.picks.length < P.need;
   $("pickDone").textContent = instaxOn() ? "인화하기" : "이 사진으로 완성";
   renderPick();
@@ -1654,7 +1600,6 @@ function dragEnd(){ drag=null; }
 $("pickPrev").addEventListener("pointerup", dragEnd);
 $("pickPrev").addEventListener("pointercancel", dragEnd);
 function closePick(){
-  liveStop(); $("pickEmpty").hidden = true;
   P.token++; $("pickGrid").innerHTML="";
   if (P.url){ URL.revokeObjectURL(P.url); P.url=null; }
   $("pickPrev").removeAttribute("src");
@@ -1668,9 +1613,9 @@ $("pickGrid").addEventListener("click", function(e){
   refreshPick();
 });
 function setPickAr(){
-  var s0 = P.L.slots[0] || {w:2,h:3};
   // 인스탁스는 컷 수와 상관없이 사진 목록 크기를 같게 합니다(가로 3:2, 세로 2:3). 칸 모양으로 잘리는 건 오른쪽 미리보기가 보여 줍니다.
-  var ar = instaxOn() ? (isLandscape(P.L) ? "3 / 2" : "2 / 3") : (s0.w+" / "+s0.h);
+  // 셀프042: 찍은 사진(후지 HDMI, 3:2)을 잘리지 않게 통째로 크게 보여 줍니다. 칸 모양으로 잘리는 건 오른쪽 미리보기가 보여 줍니다.
+  var ar = "3 / 2";
   $("pickGrid").style.setProperty("--ar", ar);
   setFilm(P.L);
 }
@@ -1693,155 +1638,6 @@ $("pickOrient").addEventListener("click", function(e){
   pickChips(); setPickAr(); refreshPick();
 });
 
-/* ── 맥에서 실시간으로 사진 받기 ─────────────
-   후지 테더 앱이 맥의 "부스 사진" 폴더에 저장하는 사진을 인화 서버(/photos)에 2초마다 물어 가져옵니다.
-   고르기 화면이 열려 있는 동안 새 사진이 하나씩 떠오릅니다. 손님이 끝나면 /photos/done 으로
-   "여기까지 본 사진"을 알려서, 다음 손님에게는 그 뒤에 찍은 사진만 보이게 합니다(맥 폴더의 파일은 그대로 둡니다).
-   한 번에 한 팀씩 쓰는 것이 전제입니다. 앞 손님이 끝나기 전에 다음 손님을 찍으면 앞 손님 화면에도 뜹니다. */
-var LIVE_MS = 2000;
-function liveOn(){ return !!relayUrl() && !(CFG.instax && CFG.instax.live === false) && instaxOrients().length > 0; }
-function liveStop(){ P.live = false; P.liveId++; clearTimeout(P.timer); }
-function liveNote(){
-  var el = $("pickEmpty");
-  el.hidden = !P.live || S.shots.length > 0;
-  el.textContent = P.fails > 1
-    ? "맥과 연결되지 않았습니다. 맥에서 인화 서버가 켜져 있는지 확인해 주세요.\n("+relayUrl()+(P.err ? " · "+P.err : "")+")"
-    : "사진을 기다리는 중입니다. 촬영하면 여기에 나타납니다.";
-}
-function liveGet(url, p, id){
-  return fetch(url+"/photo?name="+encodeURIComponent(p.name))
-    .then(function(r){
-      if (r.status === 404 || r.status === 500) return null;   // 없어졌거나 읽을 수 없는 파일은 건너뜁니다(안 그러면 뒤 사진이 영영 막힙니다)
-      if (!r.ok) throw new Error("photo");
-      return r.blob();
-    })
-    .then(function(b){ return b ? loadPhoto(b).catch(function(){ return null; }) : null; })
-    .then(function(c){
-      P.seen[p.name+"@"+p.stamp] = 1; P.maxStamp = Math.max(P.maxStamp, p.stamp);
-      if (!c) return;
-      if (id !== P.liveId){ freeCanvases([c]); return; }
-      // 목록 맨 아래를 보고 있었다면 새 사진이 보이게 따라 내려갑니다. 위쪽 사진을 보는 중이면 그대로 둡니다.
-      var g = $("pickGrid"), atEnd = g.scrollHeight - g.scrollTop - g.clientHeight < 140;
-      S.shots.push(c); addPickThumb(c, S.shots.length-1);
-      if (atEnd) g.scrollTop = g.scrollHeight;
-      pickChips(); refreshPick(); liveNote();
-    });
-}
-function liveTick(){
-  if (!P.live) return;
-  var id = P.liveId, url = relayUrl();
-  fetch(url+"/photos").then(function(r){ return r.json(); }).then(function(j){
-    if (id !== P.liveId) return;
-    if (!j.ok) throw new Error(j.error || "응답이 이상합니다");
-    P.fails = 0; liveNote();
-    var fresh = (j.photos || []).filter(function(p){ return !P.seen[p.name+"@"+p.stamp]; });
-    // 한 장씩 차례로 받아야 큰 사진이 한꺼번에 메모리에 올라가지 않습니다
-    return fresh.reduce(function(pr, p){
-      return pr.then(function(){ return (id === P.liveId && S.shots.length < IMPORT_MAX) ? liveGet(url, p, id) : null; });
-    }, Promise.resolve());
-  }).catch(function(e){ if (id === P.liveId){ P.fails++; P.err = (e && e.message) || ""; liveNote(); } })
-    .then(function(){ if (id === P.liveId) P.timer = setTimeout(liveTick, LIVE_MS); });
-}
-function openLive(o){
-  liveStop();
-  freeCanvases(S.shots); S.shots = [];
-  instaxOrient = (o && instaxOrients().indexOf(o) >= 0) ? o : instaxOrients()[0]; cur = 0;
-  var L0 = enabledLayouts()[0];
-  liveSession = true; orientFixed = true;   // 가로·세로는 첫 화면에서 골랐습니다
-  openPick(L0, shotCount(L0), true);
-  P.live = true; P.seen = {}; P.fails = 0; P.maxStamp = 0;
-  $("pickFromPhotos").hidden = false;
-  liveNote(); liveTick();
-}
-/* 손님이 끝났을 때(끝내기·처음으로). 실패하면 다음 손님에게 앞 손님 사진이 보이니 알려줍니다. */
-function liveFinish(){
-  if (!liveSession) return;
-  liveSession = false;
-  fetch(relayUrl()+"/photos/done?upTo="+P.maxStamp, { method:"POST" })
-    .then(function(r){ return r.json(); })
-    .then(function(j){ if (!j.ok) throw new Error("done"); })
-    .catch(function(){ say("맥에서 앞 손님 사진을 정리하지 못했습니다. 다음 손님 화면에 앞 사진이 보일 수 있습니다.", 8000); });
-}
-$("pickFromPhotos").addEventListener("click", function(){ $("importBtn").click(); });
-
-/* ── 찍어 둔 사진 불러오기 ─────────────────
-   맥에서 보내준 사진을 손님이 직접 고릅니다. 촬영 대신 사진 파일을 S.shots 에 담고
-   같은 고르기 화면으로 갑니다. 카메라로 찍은 원본이라 거울 뒤집기·보정은 하지 않습니다. */
-function loadPhoto(file){
-  return new Promise(function(resolve, reject){
-    var url = URL.createObjectURL(file), img = new Image();
-    img.onload = function(){
-      var sc = Math.min(1, IMPORT_LONG/Math.max(img.naturalWidth, img.naturalHeight));
-      var c = document.createElement("canvas");
-      c.width = Math.round(img.naturalWidth*sc); c.height = Math.round(img.naturalHeight*sc);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); resolve(c);
-      // 얼굴을 찾으면 그 자리로 옮겨 다시 그립니다. 기다리지 않고 사진은 바로 보여줍니다.
-      findFaces(c).then(function(){ if (!pickEl.hidden && S.shots.indexOf(c)>=0) renderPick(); }, function(){});
-    };
-    img.onerror = function(){ URL.revokeObjectURL(url); reject(); };
-    img.src = url;
-  });
-}
-/* 얼굴 찾기 — 받은·불러온 사진에서 얼굴들을 찾아, 얼굴 무리의 가운데가 칸 가운데 오도록 처음 자리(c.__c)를 정합니다.
-   구글 MediaPipe 얼굴 찾기를 처음 한 번 인터넷에서 받습니다. 못 받으면 사진 가운데 그대로이고, 미리보기를 끌어 맞추면 됩니다. */
-var FACE_LIB = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-var FACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
-var faceDet = null;
-function faceDetector(){
-  return faceDet || (faceDet = import(FACE_LIB+"/vision_bundle.mjs").then(function(v){
-    return v.FilesetResolver.forVisionTasks(FACE_LIB+"/wasm").then(function(fs){
-      return v.FaceDetector.createFromOptions(fs, { baseOptions:{ modelAssetPath:FACE_MODEL }, runningMode:"IMAGE", minDetectionConfidence:0.5 });
-    });
-  }));
-}
-function findFaces(c){
-  return faceDetector().then(function(det){
-    if (!c.width || c.__c) return;   // 그사이 버렸거나, 손으로 이미 옮긴 사진
-    var w=c.width, h=c.height, side=Math.min(w,h), n=Math.min(side, 640), k=side/n, boxes=[];
-    // 얼굴 찾기는 사진을 작게 줄여서 봅니다. 3:2 를 통째로 넣으면 얼굴이 너무 작아져 못 찾으니 정사각형 두 장(앞·뒤)으로 나눠 봅니다.
-    [0, Math.max(w,h)-side].forEach(function(off){
-      var ox = w>h ? off : 0, oy = w>h ? 0 : off;
-      var t=document.createElement("canvas"); t.width=t.height=n;
-      t.getContext("2d").drawImage(c, ox, oy, side, side, 0, 0, n, n);
-      det.detect(t).detections.forEach(function(d){
-        var b=d.boundingBox;
-        boxes.push({ x:ox+b.originX*k, y:oy+b.originY*k, w:b.width*k, h:b.height*k });
-      });
-      free(t);
-    });
-    if (!boxes.length) return;
-    // 뒤쪽 포스터·작은 얼굴은 뺍니다(가장 큰 얼굴의 1/3 보다 작은 것)
-    var big=Math.max.apply(null, boxes.map(function(b){ return b.w; }));
-    boxes = boxes.filter(function(b){ return b.w >= big/3; });
-    var x0=Math.min.apply(null, boxes.map(function(b){ return b.x; })), x1=Math.max.apply(null, boxes.map(function(b){ return b.x+b.w; }));
-    var y0=Math.min.apply(null, boxes.map(function(b){ return b.y; })), y1=Math.max.apply(null, boxes.map(function(b){ return b.y+b.h; }));
-    c.__c = { x:(x0+x1)/2/w, y:(y0+y1)/2/h };
-  });
-}
-$("importBtn").addEventListener("click", function(){ $("importFile").value=""; $("importFile").click(); });
-$("importFile").addEventListener("change", function(e){
-  var files = Array.prototype.slice.call(e.target.files || []);
-  if (!files.length) return;
-  liveStop(); liveSession = false;   // 사진 앱에서 고르면 맥 폴더의 사진은 이 손님 것이 아닙니다
-  var cut = files.length > IMPORT_MAX;
-  if (cut) files = files.slice(0, IMPORT_MAX);
-  say("사진을 불러오는 중입니다…", 0);
-  freeCanvases(S.shots); S.shots = [];
-  // 한 장씩 차례로 읽어야 큰 원본이 한꺼번에 메모리에 올라가지 않습니다
-  files.reduce(function(p, f){
-    return p.then(function(){ return loadPhoto(f).then(function(c){ S.shots.push(c); }, function(){}); });
-  }, Promise.resolve()).then(function(){
-    hush();
-    if (!S.shots.length){ say("사진을 읽지 못했습니다. 다시 골라주세요.", 5000); return; }
-    if (!orientFixed || !instaxOn()) instaxOrient = instaxOrients()[0]; cur = 0;
-    var L0 = enabledLayouts()[0];
-    openPick(L0, shotCount(L0), true);
-    if (cut) say("한 번에 "+IMPORT_MAX+"장까지만 불러옵니다. 앞의 "+IMPORT_MAX+"장을 썼습니다.", 6000);
-    else if (S.shots.length < files.length) say((files.length-S.shots.length)+"장은 읽지 못했습니다.", 6000);
-  });
-});
-
 $("pickDone").addEventListener("click", function(){
   if (P.picks.length<P.need) return;
   var shots=P.picks.map(function(i){ return S.shots[i]; });
@@ -1850,14 +1646,11 @@ $("pickDone").addEventListener("click", function(){
     setResult(blob);
     closePick(); freeCanvases(S.shots); S.shots=[];
     setPrintPage(P.L); show(resultEl);
-    // 인스탁스는 MEI 부스처럼 고르기 화면에서 바로 인화합니다. 결과 화면은 나오는 동안 보여주고,
-    // 실패하면 거기서 인화 버튼으로 다시 보낼 수 있습니다.
-    if (instaxOn()) printInstax();
   });
 });
 $("pickQuit").addEventListener("click", function(){
-  ask(liveSession ? "맥에서 받은 사진을 정리하고 처음으로 돌아갈까요?" : "찍은 사진을 버리고 처음으로 돌아갈까요?", function(){
-    closePick(); freeCanvases(S.shots); S.shots=[]; readyMode(true); liveFinish(); show(setupEl);
+  ask("찍은 사진을 버리고 처음으로 돌아갈까요?", function(){
+    closePick(); freeCanvases(S.shots); S.shots=[]; readyMode(true); show(setupEl);
   });
 });
 
@@ -1904,12 +1697,11 @@ $("flipBtn").addEventListener("click", function(){
   openCamera().then(applyPreviewFilter).catch(function(e){ say(cameraError(e)); });
 });
 $("againBtn").addEventListener("click", function(){
-  S.blob=null; freeCanvases(S.shots); S.shots=[]; hush(); readyMode(true); liveFinish(); show(setupEl);
+  S.blob=null; freeCanvases(S.shots); S.shots=[]; hush(); readyMode(true); show(setupEl);
 });
 /* 인쇄는 웹 페이지(window.print)가 아니라 사진 파일을 공유 창으로 보냅니다. 손님이 "프린트" 를 고르면 사진 앱에서 뽑듯이 나가서
    사파리가 붙이는 날짜·주소가 없고 한 장에 맞춰집니다(아이패드 시험에서 두 장으로 나뉘고 날짜·주소가 찍혀 바꿈, 사용자 요청). */
 $("printBtn").addEventListener("click", function(){
-  if (instaxOn()){ printInstax(); return; }
   if (relayUrl()){ printEpson(); return; }   // 맥 주소가 있으면 맥이 엡손으로 바로 뽑습니다(인쇄 창 없음)
   if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
 });
@@ -1933,7 +1725,7 @@ function printEpson(){
     .then(function(){ S.printing = false; syncPrintBtn(); });
 }
 
-/* ── 인스탁스 인화 — 맥의 인화 서버(instax/relay)로 보냅니다 ── */
+/* 인화 맥(instax/relay) 주소 */
 function relayUrl(){ return ((CFG.instax && CFG.instax.relay) || "").trim().replace(/\/+$/, ""); }
 function syncPrintBtn(){
   var b=$("printBtn");
@@ -1944,46 +1736,6 @@ function syncPrintBtn(){
   b.classList.toggle("primary", instaxOn());
   $("saveBtn").classList.toggle("primary", !instaxOn());
   $("resultHint").hidden = direct;   // "공유 창 → 프린트" 안내는 맥 주소가 없을 때만
-}
-/* 프린터 상태 한 줄 — 남은 필름과 배터리. 맥을 거쳐 블루투스로 묻습니다(몇 초 걸립니다). */
-function fetchStatus(){
-  return fetch(relayUrl()+"/status").then(function(r){ return r.json(); }).then(function(j){
-    if (!j.ok) throw new Error(j.error || "프린터를 찾지 못했습니다.");
-    return j;
-  });
-}
-function printerStatus(){
-  var el=$("printerLine");
-  if (!relayUrl()) return;
-  el.className = ""; el.textContent = "프린터 확인 중";
-  fetchStatus().then(function(j){
-    var p = j.printer || {};
-    el.className = "ok";
-    el.textContent = p.film_remaining !== undefined
-      ? "프린터 준비 · 남은 필름 "+p.film_remaining+"장 · 배터리 "+p.battery+"%"
-      : "프린터 준비";
-  }).catch(function(){ el.className = "bad"; el.textContent = "프린터 연결 안 됨"; });
-}
-function printInstax(){
-  if (!S.blob || S.printing || S.printed) return;
-  var url = relayUrl();
-  if (!url){ say("관리자 화면의 인스탁스 칸에 인화 맥 주소를 넣어주세요.", 6000); return; }
-  S.printing = true; syncPrintBtn(); say("인화하는 중입니다…", 0);
-  fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
-      // 한 번 뽑으면 다시 찍기 전까지 막습니다. 필름을 아끼려는 것입니다.
-      S.printed = true;
-      say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
-      printerStatus();   // 남은 필름 수를 새로 읽습니다
-    })
-    .catch(function(e){
-      say(e instanceof TypeError
-        ? "인화 맥에 연결하지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인하세요."
-        : "인화하지 못했습니다. "+e.message, 9000);
-    })
-    .then(function(){ S.printing = false; syncPrintBtn(); });
 }
 /* 결과 사진을 공유 창으로 엽니다(저장·에어드롭·프린트). 공유를 못 하는 브라우저면 false. */
 function shareResult(){
@@ -2026,26 +1778,34 @@ $("admClose").addEventListener("click", function(){
   });
 });
 
-/* ── 인스탁스 ─────────────────────────── */
+/* ── 화면 디자인 ─────────────────────────
+   손님 화면의 색·글씨만 바꿉니다(index.html 의 body[data-theme] 규칙). 저장된 값이 없거나 틀리면 다크 시크. */
+function setTheme(t){
+  if (["light","vintage","dark"].indexOf(t) < 0) t = "dark";
+  CFG.theme = t;
+  document.body.dataset.theme = t;
+  Array.prototype.forEach.call($("themePick").children, function(b){
+    b.classList.toggle("primary", b.dataset.theme === t);
+  });
+}
+$("themePick").addEventListener("click", function(e){
+  var b=e.target.closest("[data-theme]"); if(!b) return;
+  setTheme(b.dataset.theme); saveConfig();
+});
+
+/* ── 인화 맥 ─────────────────────────── */
 $("relayUrl").addEventListener("input", function(e){
   CFG.instax.relay = e.target.value.trim(); saveConfig();
-});
-$("liveOn").addEventListener("change", function(e){
-  CFG.instax.live = e.target.checked; saveConfig();
 });
 $("relayCheck").addEventListener("click", function(){
   var note=$("relayNote"), url=relayUrl();
   if (!url){ note.textContent = "인화 맥 주소를 먼저 넣어주세요."; return; }
-  note.textContent = "프린터를 찾는 중입니다… (10초쯤 걸립니다)";
-  fetchStatus().then(function(j){
-    var p = j.printer;
-    note.textContent = j.dryRun ? "맥과 연결됐습니다. (인화 서버가 시험 모드입니다)"
-      : (p && p.model) ? "연결됐습니다. "+p.model+" · 배터리 "+p.battery+"% · 남은 필름 "+p.film_remaining+"장"
-      : "연결됐습니다. "+JSON.stringify(p);
-  }).catch(function(e){
-    note.textContent = e instanceof TypeError
-      ? "맥에 연결하지 못했습니다. 인화 서버가 켜져 있는지, 아이패드에 인증서를 설치했는지 확인하세요."
-      : "맥은 연결됐지만 프린터를 찾지 못했습니다. "+e.message;
+  note.textContent = "맥을 찾는 중입니다…";
+  // 인화 서버가 답하는지만 봅니다(엡손 프린터 상태는 맥에서 봅니다). "/" 는 CORS 머리가 없어 no-cors 로 닿는지만 확인합니다
+  fetch(url+"/", { mode:"no-cors" }).then(function(){
+    note.textContent = "맥과 연결됐습니다.";
+  }).catch(function(){
+    note.textContent = "맥에 연결하지 못했습니다. 인화 서버가 켜져 있는지, 아이패드에 인증서를 설치했는지 확인하세요.";
   });
 });
 
@@ -2191,7 +1951,6 @@ function renderFilterFields(){
   var f=F();
   $("fName").value=f.name;
   $("fEnabled").checked=!!f.enabled;
-  $("fPick").checked=!!f.pick;
   var LU=f.lut, amt=(f.lutAmount===undefined ? 100 : f.lutAmount);
   $("fLutInfo").textContent = LU
     ? "가져온 색감: "+LU.name+" ("+(LU.kind==="cube" ? "*.cube "+LU.size+"³" : "*."+LU.kind)+(LU.note ? " · "+LU.note : "")+")"
@@ -2219,13 +1978,6 @@ $("fEnabled").addEventListener("change", function(e){
   F().enabled=on; renderFilterList(); saveConfig();
   if (!on && CFG.filter===F().id) CFG.filter = shownFilters()[0].id;
   buildChips($("filters"), shownFilters(), CFG.filter, false);
-});
-$("fPick").addEventListener("change", function(e){
-  var on=e.target.checked;
-  if (on && allFilters().filter(function(x){ return x.pick && x!==F(); }).length>=3){
-    e.target.checked=false; say("고르기 화면에는 색감을 3개까지 보여줄 수 있습니다. 다른 색감의 체크를 먼저 풀어 주세요.", 6000); return;
-  }
-  F().pick=on; renderFilterList(); saveConfig();
 });
 /* 색감 파일 가져오기: *.cube *.xmp *.acv */
 $("fLutBtn").addEventListener("click", function(){ $("fLutFile").value=""; $("fLutFile").click(); });
@@ -2364,15 +2116,12 @@ $("pvToggle").addEventListener("click", function(){
 function renderAdmin(){
   scanCameras();
   $("relayUrl").value = (CFG.instax && CFG.instax.relay) || "";
-  $("liveOn").checked = !(CFG.instax && CFG.instax.live === false);
   renderFilterList();
   renderFilterFields();
   renderFaceSliders();
   paintAdminLook();
   renderLayoutList();
   renderLayoutFields();
-  renderBgList();
-  renderBgSelect();
   renderTextList();
   renderTextFields();
   renderSlotFields();
@@ -2397,21 +2146,12 @@ function renderLayoutFields(){
   var l=L();
   $("admName").value=l.name;
   $("admEnabled").checked=!!l.enabled;
-  $("admW").value=l.canvas.w; $("admH").value=l.canvas.h;
-  var key=l.canvas.w+"x"+l.canvas.h;
-  var opt=Array.prototype.filter.call($("admPreset").options,function(o){return o.value===key;})[0];
-  $("admPreset").value = opt ? key : "custom";
   $("cutOn").checked = !!(l.cut && l.cut.on);
   $("cutX").value = l.cut ? l.cut.x : Math.round(l.canvas.w/2);
   $("cutColor").value = l.cut ? l.cut.color : "#D8D0CA";
   $("editNote").textContent = l.canvas.w+" × "+l.canvas.h+" px · 300dpi 기준 "+
     (l.canvas.w/300).toFixed(1)+" × "+(l.canvas.h/300).toFixed(1)+" 인치 · 촬영 "+shotCount(l)+"컷";
   fillLookSelect();
-  var th=$("admIconThumb");
-  th.style.backgroundImage="none"; th.textContent="없음";
-  getImage(l.icon).then(function(b){
-    if (b && L()===l){ th.style.backgroundImage='url('+b.url+')'; th.textContent=""; }
-  });
 }
 /* 필름 목록 — 손님에게 숨긴 보정도 고를 수 있습니다. 카메라 전용 색감을 숨겨두고 쓸 때입니다. */
 function fillLookSelect(){
@@ -2424,44 +2164,11 @@ function fillLookSelect(){
 $("admLook").addEventListener("change", function(e){
   L().look = e.target.value || null; saveConfig();
 });
-$("admIcon").addEventListener("change", function(){
-  var input=this, f=input.files && input.files[0]; if (!f) return;
-  if (!/^image\//.test(f.type)){ say("이미지 파일만 올릴 수 있습니다."); input.value=""; return; }
-  var l=L();
-  fitImage(f, 480, 0, true)          // 시작 화면 버튼에만 쓰므로 가로 480px 이면 충분합니다
-    .then(putImage)
-    .then(function(key){
-      var old=l.icon; l.icon=key;
-      if (old){ kvDel(old); delete imgCache[old]; }
-      return saveConfig();
-    })
-    .then(function(){ renderLayoutFields(); say("카메라 그림을 올렸습니다."); })
-    .catch(function(){ say("이미지를 읽지 못했습니다. PNG나 JPG로 저장해서 다시 올려주세요.", 5000); })
-    .then(function(){ input.value=""; });
-});
-$("admIconDel").addEventListener("click", function(){
-  var k=L().icon; if(!k){ say("올린 카메라 그림이 없습니다."); return; }
-  L().icon=null; kvDel(k); delete imgCache[k]; saveConfig(); renderLayoutFields(); say("카메라 그림을 지웠습니다.");
-});
 $("admName").addEventListener("input", function(e){
   L().name = e.target.value || "이름 없음"; renderLayoutList(); saveConfig();
 });
 $("admEnabled").addEventListener("change", function(e){
   L().enabled = e.target.checked; renderLayoutList(); saveConfig();
-});
-$("admPreset").addEventListener("change", function(e){
-  if (e.target.value==="custom") return;
-  var p=e.target.value.split("x");
-  L().canvas.w=Number(p[0]); L().canvas.h=Number(p[1]);
-  renderLayoutFields(); renderEditor(); saveConfig();
-});
-["admW","admH"].forEach(function(id){
-  $(id).addEventListener("change", function(){
-    var w=Number($("admW").value)||1200, h=Number($("admH").value)||1800;
-    L().canvas.w=Math.max(200,Math.min(6000,w));
-    L().canvas.h=Math.max(200,Math.min(6000,h));
-    renderLayoutFields(); renderEditor(); saveConfig();
-  });
 });
 ["cutOn","cutX","cutColor"].forEach(function(id){
   $(id).addEventListener("change", function(){
@@ -2496,174 +2203,6 @@ $("admDel").addEventListener("click", function(){
     CFG.layouts.splice(admIdx,1);
     admIdx=Math.max(0,admIdx-1); selSlot=0; selText=0; renderAdmin(); saveConfig();
     buildModes();
-  });
-});
-
-/* 배경 / 프레임 이미지 */
-/* 올린 이미지를 인화지 크기로 줄여서 저장합니다.
-   카메라 원본처럼 큰 사진을 그대로 들고 있으면 합성할 때 캔버스 메모리가
-   터지면서 결과가 잡티로 나옵니다. 어차피 인화지 크기로 늘여 쓰므로
-   원본 해상도를 보관할 이유가 없습니다. */
-function fitImage(file, w, h, keepAlpha){
-  return new Promise(function(res, rej){
-    var url = URL.createObjectURL(file);
-    var im = new Image();
-    im.onload = function(){
-      if (!h) h = Math.round(w * im.naturalHeight / im.naturalWidth);   // h 가 0이면 원본 비율을 지킵니다
-      var c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      var x = c.getContext("2d");
-      if (!keepAlpha){ x.fillStyle = "#FFFFFF"; x.fillRect(0,0,w,h); }
-      x.drawImage(im, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      c.toBlob(function(b){
-        c.width = c.height = 0;
-        b ? res(b) : rej(new Error("encode"));
-      }, keepAlpha ? "image/png" : "image/jpeg", 0.92);
-    };
-    im.onerror = function(){ URL.revokeObjectURL(url); rej(new Error("decode")); };
-    im.src = url;
-  });
-}
-
-/* 프레임은 인화 방식마다 다른 그림이라 레이아웃에 그대로 둡니다 */
-function handleImage(input, which){
-  var f = input.files && input.files[0]; if (!f) return;
-  if (!/^image\//.test(f.type)){ say("이미지 파일만 올릴 수 있습니다."); input.value=""; return; }
-  var l = L();
-  say("이미지를 인화지 크기로 맞추는 중…", 0);
-  fitImage(f, l.canvas.w, l.canvas.h, true)
-    .then(putImage)
-    .then(function(key){
-      var old = l[which];
-      l[which] = key;
-      if (old){ kvDel(old); delete imgCache[old]; }
-      return saveConfig();
-    })
-    .then(function(){ renderEditor(); say("프레임을 올렸습니다."); })
-    .catch(function(){
-      say("이미지를 읽지 못했습니다. PNG나 JPG로 저장해서 다시 올려주세요.", 5000);
-    })
-    .then(function(){ input.value=""; });
-}
-$("admFrame").addEventListener("change", function(){ handleImage(this,"frame"); });
-$("admFrameDel").addEventListener("click", function(){
-  var k=L().frame; if(!k){ say("올린 프레임이 없습니다."); return; }
-  L().frame=null; kvDel(k); delete imgCache[k]; saveConfig(); renderEditor(); say("프레임을 지웠습니다.");
-});
-
-/* ── 배경 목록 관리 ─────────────────────────
-   배경은 공용이라 어느 한 인화 방식에 매달지 않습니다.
-   가로 배경은 가장 큰 가로 인화지, 세로 배경은 가장 큰 세로 인화지에 맞춰
-   줄여서 저장합니다. 원본 그대로 두면 아이패드에서 합성 중에 메모리가 터집니다. */
-function bgTargetSize(which){
-  var w=0, h=0;
-  CFG.layouts.forEach(function(l){
-    var land = l.canvas.w > l.canvas.h;
-    if ((which==="h") === land && l.canvas.w*l.canvas.h > w*h){ w=l.canvas.w; h=l.canvas.h; }
-  });
-  if (!w) return which==="h" ? {w:1800,h:1200} : {w:1200,h:1800};
-  return {w:w, h:h};
-}
-
-function renderBgList(){
-  var host = $("bgList"), a = allBackgrounds();
-  if (!a.length){
-    host.innerHTML = '<p class="note">아직 올린 배경이 없습니다. 배경 추가를 눌러 시작하세요.</p>';
-    return;
-  }
-  host.innerHTML = a.map(function(e){
-    return '<div class="bgrow" data-id="'+e.id+'">'+
-      '<span class="bgthumb" data-slot="h"></span>'+
-      '<span class="bgthumb" data-slot="v"></span>'+
-      '<input class="bgname" type="text" maxlength="20" value="'+escapeHtml(e.name)+'">'+
-      '<label class="btn sm filepick">가로<input type="file" accept="image/*" data-up="h"></label>'+
-      '<label class="btn sm filepick">세로<input type="file" accept="image/*" data-up="v"></label>'+
-      '<button class="btn sm danger" data-del="1">삭제</button></div>';
-  }).join("");
-
-  a.forEach(function(e){
-    ["h","v"].forEach(function(k){
-      var el = host.querySelector('.bgrow[data-id="'+e.id+'"] .bgthumb[data-slot="'+k+'"]');
-      if (!el) return;
-      if (!e[k]){ el.textContent = "없음"; return; }
-      getImage(e[k]).then(function(b){ if (b) el.style.backgroundImage = 'url('+b.url+')'; });
-    });
-  });
-}
-
-function renderBgSelect(){
-  var sel = $("admBgSel");
-  var html = '<option value="">없음</option>';
-  allBackgrounds().forEach(function(e){
-    html += '<option value="'+e.id+'">'+escapeHtml(e.name)+'</option>';
-  });
-  sel.innerHTML = html;
-  sel.value = CFG.bgId || "";
-}
-$("admBgSel").addEventListener("change", function(){
-  CFG.bgId = this.value || null;
-  saveConfig(); renderEditor(); buildBgPick(); buildModes();
-});
-
-$("bgAdd").addEventListener("click", function(){
-  allBackgrounds().push({
-    id: "B"+Date.now()+Math.floor(Math.random()*1000),
-    name: "배경 "+(allBackgrounds().length+1), h:null, v:null
-  });
-  saveConfig(); renderBgList(); renderBgSelect(); buildBgPick();
-  say("배경을 하나 만들었습니다. 가로·세로 그림을 올려주세요.");
-});
-
-$("bgList").addEventListener("change", function(ev){
-  var row = ev.target.closest(".bgrow"); if (!row) return;
-  var e = bgById(row.dataset.id); if (!e) return;
-
-  if (ev.target.classList.contains("bgname")){
-    e.name = ev.target.value.trim() || "배경";
-    ev.target.value = e.name;
-    saveConfig(); renderBgSelect(); buildBgPick();
-    return;
-  }
-
-  var which = ev.target.dataset.up;
-  if (!which) return;
-  var input = ev.target;
-  var f = input.files && input.files[0]; if (!f) return;
-  if (!/^image\//.test(f.type)){ say("이미지 파일만 올릴 수 있습니다."); input.value=""; return; }
-  var t = bgTargetSize(which);
-  say("배경을 인화지 크기로 맞추는 중…", 0);
-  fitImage(f, t.w, t.h, false)
-    .then(putImage)
-    .then(function(key){
-      var old = e[which];
-      e[which] = key;
-      if (old){ kvDel(old); delete imgCache[old]; }
-      return saveConfig();
-    })
-    .then(function(){
-      renderBgList(); renderEditor(); buildBgPick(); buildModes();
-      say((which==="h"?"가로":"세로")+" 배경을 올렸습니다.");
-    })
-    .catch(function(){
-      say("이미지를 읽지 못했습니다. PNG나 JPG로 저장해서 다시 올려주세요.", 5000);
-    })
-    .then(function(){ input.value=""; });
-});
-
-$("bgList").addEventListener("click", function(ev){
-  var btn = ev.target.closest("[data-del]"); if (!btn) return;
-  var row = ev.target.closest(".bgrow"); if (!row) return;
-  var id = row.dataset.id, e = bgById(id); if (!e) return;
-  ask('배경 "'+e.name+'" 을 지울까요?', function(){
-    var keys = [e.h, e.v].filter(Boolean);
-    CFG.backgrounds = allBackgrounds().filter(function(x){ return x.id !== id; });
-    if (CFG.bgId === id) CFG.bgId = null;
-    keys.forEach(function(k){ kvDel(k); delete imgCache[k]; });
-    saveConfig().then(function(){
-      renderBgList(); renderBgSelect(); renderEditor(); buildBgPick(); buildModes();
-      say("배경을 지웠습니다.");
-    });
   });
 });
 
@@ -3160,6 +2699,7 @@ kvGet("config").then(function(saved){
   if (!filterById(CFG.filter) || shownFilters().map(function(f){return f.id;}).indexOf(CFG.filter)<0)
     CFG.filter = shownFilters()[0].id;
   $("brandEdit").value = CFG.brand;
+  setTheme(CFG.theme);
   buildSliders();
   buildChips($("filters"), shownFilters(), CFG.filter, false);
   buildChips($("timers"), TIMERS, CFG.timer, true);
