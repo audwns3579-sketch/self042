@@ -45,7 +45,7 @@ function defaultConfig(){
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
          두 줄에 같은 사진 3장이 들어가서 가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 흑백은 look "bwstrip" 이 입힙니다. */
       {
-        id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", look: "bwstrip",
+        id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", look: "bwstrip", shots: 6,
         canvas: { w:1500, h:2100 },
         frame: null,
         slots: [
@@ -219,6 +219,11 @@ function migrate(cfg){
       });
     });
   }
+  // 셀프042: 프레임마다 찍는 장 수(shots)를 나중에 넣었습니다(흑백 3컷 띠 6장). 저장된 설정에 없으면 기본값을 붙입니다.
+  defaultConfig().layouts.forEach(function(d){
+    if (!d.shots) return;
+    (cfg.layouts || []).forEach(function(l){ if (l.id === d.id && l.shots === undefined) l.shots = d.shots; });
+  });
   if (cfg.version >= 8){ cfg.version = 22; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
@@ -380,7 +385,8 @@ function needShots(L){
   return instaxOn() ? Math.max.apply(null, enabledLayouts().map(shotCount)) : shotCount(L);
 }
 /* 실제로 찍는 장 수. 고르기 방식이면 칸 수보다 넉넉하게 찍습니다. */
-function shootTotal(L){ return pickMode() ? Math.max(PICK_SHOTS, needShots(L)) : shotCount(L); }
+// L.shots: 프레임마다 찍는 장 수(흑백 3컷 띠는 3장 고르니 6장, 사용자 요청). 없으면 PICK_SHOTS(10)
+function shootTotal(L){ return pickMode() ? Math.max(L.shots || PICK_SHOTS, needShots(L)) : shotCount(L); }
 function fontOf(t){
   return (t.font==="display")
     ? t.size+"px Anton, sans-serif"
@@ -520,7 +526,7 @@ function updateShotNote(){
   $("shotNote").innerHTML = !L ? '' : instaxOn()
     ? '카메라가 먼저 켜집니다. 촬영 시작을 누르면 <b>'+shootTotal(L)+'장</b>을 이어서 찍고, 다 찍은 뒤 컷 수와 사진을 골라 인스탁스로 인화합니다.'
     : pickMode()
-    ? '카메라가 먼저 켜집니다. 촬영 시작을 누르면 <b>'+shootTotal(L)+'장</b>까지 이어서 찍고, 다 찍은 뒤 마음에 드는 <b>'+shotCount(L)+'장</b>을 골라 인화합니다.'
+    ? '카메라를 켜면 바로 릴리즈로 <b>'+shootTotal(L)+'장</b>을 찍고, 다 찍은 뒤 마음에 드는 <b>'+shotCount(L)+'장</b>을 골라 인화합니다.'
     : '카메라가 먼저 켜집니다. 얼굴을 맞춘 뒤 촬영 시작을 누르면 <b>'+shotCount(L)+'컷</b>을 이어서 찍습니다.';
 }
 function buildChips(host, items, current, isTimer){
@@ -1858,9 +1864,13 @@ $("startBtn").addEventListener("click", function(){
   $("stage").style.setProperty("--ar", s0.w+" / "+s0.h);
   $("stage").style.setProperty("--ar-num", s0.w/s0.h);
   show(shootEl); ticks(0, shootTotal(L)); applyPreviewFilter(); keepAwake();
-  // 카메라만 켜고 기다립니다. 얼굴을 맞춘 뒤 촬영 시작을 눌러야 찍기 시작합니다.
+  // 카메라가 켜지면 바로 릴리즈 촬영을 기다립니다(촬영 시작 버튼 없이, 사용자 요청).
   readyMode(true);
   openCamera()
+    .then(function(){
+      readyMode(false);
+      return runSession().catch(function(){ readyMode(true); });
+    })
     .catch(function(err){ say(cameraError(err),0); releaseAwake(); show(setupEl); });
 });
 
