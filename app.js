@@ -1890,7 +1890,12 @@ $("flipBtn").addEventListener("click", function(){
 $("againBtn").addEventListener("click", function(){
   S.blob=null; freeCanvases(S.shots); S.shots=[]; hush(); readyMode(true); liveFinish(); show(setupEl);
 });
-$("printBtn").addEventListener("click", function(){ if (instaxOn()) printInstax(); else window.print(); });
+/* 인쇄는 웹 페이지(window.print)가 아니라 사진 파일을 공유 창으로 보냅니다. 손님이 "프린트" 를 고르면 사진 앱에서 뽑듯이 나가서
+   사파리가 붙이는 날짜·주소가 없고 한 장에 맞춰집니다(아이패드 시험에서 두 장으로 나뉘고 날짜·주소가 찍혀 바꿈, 사용자 요청). */
+$("printBtn").addEventListener("click", function(){
+  if (instaxOn()){ printInstax(); return; }
+  if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
+});
 
 /* ── 인스탁스 인화 — 맥의 인화 서버(instax/relay)로 보냅니다 ── */
 function relayUrl(){ return ((CFG.instax && CFG.instax.relay) || "").trim().replace(/\/+$/, ""); }
@@ -1943,18 +1948,20 @@ function printInstax(){
     })
     .then(function(){ S.printing = false; syncPrintBtn(); });
 }
-$("saveBtn").addEventListener("click", function(){
-  if (!S.blob) return;
+/* 결과 사진을 공유 창으로 엽니다(저장·에어드롭·프린트). 공유를 못 하는 브라우저면 false. */
+function shareResult(){
+  if (!S.blob) return true;
   var name = CFG.brand.replace(/\s+/g,"_")+"_"+Date.now()+".jpg";
   var file = new File([S.blob], name, {type:"image/jpeg"});
-  if (navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file]}).catch(function(e){
-      if (e && e.name==="AbortError") return;
-      say("위 사진을 길게 눌러 ‘사진에 추가’를 고르면 저장됩니다.",6000);
-    });
-    return;
-  }
-  say("위 사진을 길게 눌러 ‘사진에 추가’를 고르면 저장됩니다.",6000);
+  if (!(navigator.canShare && navigator.canShare({files:[file]}))) return false;
+  navigator.share({files:[file]}).catch(function(e){
+    if (e && e.name==="AbortError") return;
+    say("위 사진을 길게 눌러 ‘사진에 추가’를 고르면 저장됩니다.",6000);
+  });
+  return true;
+}
+$("saveBtn").addEventListener("click", function(){
+  if (!shareResult()) say("위 사진을 길게 눌러 ‘사진에 추가’를 고르면 저장됩니다.",6000);
 });
 
 /* ══════════════════════════════════════════
