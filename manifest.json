@@ -1,0 +1,17 @@
+{
+  "name": "셀프 042",
+  "short_name": "셀프 042",
+  "description": "아이패드 셀프 포토부스 — 10장을 찍고 골라 5×7 인화지로 합성합니다.",
+  "lang": "ko",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0C0A09",
+  "theme_color": "#0C0A09",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
