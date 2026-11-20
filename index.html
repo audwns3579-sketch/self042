@@ -13,13 +13,13 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans+KR:wght@300;500;700&family=Gothic+A1:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=DM+Serif+Display:ital@0;1&family=Italiana&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans+KR:wght@300;500;700&family=Jua&family=Fredoka:wght@500;600&family=Gowun+Batang:wght@400;700&family=Playfair+Display:ital,wght@1,600&family=Cinzel:wght@400&display=swap">
 <style>
 /* 암실(darkroom) 콘셉트: 손님 화면은 전면 뷰파인더, 관리자 화면은 좌우 2단 편집기 */
 :root{
   --ink:#0C0A09; --panel:#1A1413; --panel2:#241C1A; --line:#2F2522;
   --fg:#F3ECE4; --muted:#9C8C82;
-  --safelight:#FF4D2E; --lamp:#FFC247;
+  --safelight:#D6C9A8; --lamp:#9FB4C7;   /* 관리자 화면 강조색. 주황은 쓰지 않습니다(사용자 요청) */
   --display:'Anton','Arial Narrow',sans-serif;
   --body:'IBM Plex Sans KR',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
   color-scheme: dark;
@@ -47,26 +47,31 @@ img{max-width:100%}
 /* ── 손님 화면 디자인 3가지 — 관리자 "화면 디자인" 에서 고릅니다(body data-theme, app.js setTheme).
    변수는 손님 화면(.screen, 관리자 빼고)에만 덮어써서 관리자 화면은 그대로입니다.
    --onaccent: 강조색 버튼 위 글씨, --sel: 고른 카드·버튼 바탕, --glow: 시작 화면 위쪽 빛, --bradius: 버튼 둥글기 */
-body[data-theme=light] .screen:not(#admin){
-  --ink:#FBF8F3; --panel:#FFFFFF; --panel2:#F4EEE6; --line:#E6DCCF; --fg:#26211C; --muted:#978B80;
-  --safelight:#FF7A59; --lamp:#E8603F; --onaccent:#FFFFFF; --sel:#FFF3EE; --glow:#FFE4D6;
-  --display:'Gothic A1',sans-serif; --body:'Gothic A1',-apple-system,sans-serif; --radius:22px; --bradius:999px;
+/* 글씨체·색은 사용자가 시안 9가지 중 고름(2026-11-20): 밝음 3 주아+Fredoka / 빈티지 1 고운바탕+Playfair Display / 다크 1 IBM Plex 가는+Cinzel.
+   주황색은 쓰지 않습니다(사용자 요청). --display 는 영어(STUDIO 042 · 작은 영문), --body 는 한글 */
+body[data-theme] .screen:not(#admin) .eyebrow{font-family:var(--display)}
+body[data-theme=light] :is(.screen:not(#admin),#msg,#confirm){
+  --ink:#FAF8F4; --panel:#FFFFFF; --panel2:#F2F4F6; --line:#E4DED5; --fg:#26231F; --muted:#8E877F;
+  --safelight:#4A6378; --lamp:#4A6378; --onaccent:#FFFFFF; --sel:#EEF2F5; --glow:#E9EEF2;
+  --display:'Fredoka',sans-serif; --body:'Jua',-apple-system,sans-serif; --radius:22px; --bradius:999px;
   color-scheme:light; font-weight:400}
-body[data-theme=light] #brandEdit{font-weight:800}
-body[data-theme=vintage] .screen:not(#admin){
+body[data-theme=light] #brandEdit{font-weight:600}
+body[data-theme=light] .screen:not(#admin) :is(.ask,.mode-name,.btn,.chip,button){font-weight:400}
+body[data-theme=vintage] :is(.screen:not(#admin),#msg,#confirm){
   --ink:#EADFCB; --panel:#F5EDDD; --panel2:#EFE4D0; --line:#C3AD8B; --fg:#3A2A1D; --muted:#7F6A55;
-  --safelight:#9C3B2A; --lamp:#9C3B2A; --onaccent:#F5EDDD; --sel:#F3E4D3; --glow:rgba(255,250,236,.75);
-  --display:'DM Serif Display',serif; --body:'Nanum Myeongjo',serif; --radius:6px; --bradius:6px;
+  --safelight:#6E2A35; --lamp:#6E2A35; --onaccent:#F5EDDD; --sel:#F1E2DA; --glow:rgba(255,250,236,.75);
+  --display:'Playfair Display',serif; --body:'Gowun Batang',serif; --radius:6px; --bradius:6px;
   color-scheme:light; font-weight:400}
 body[data-theme=vintage] .mode{border-style:dashed}
 body[data-theme=vintage] .mode[aria-pressed=true]{border-style:solid}
-body[data-theme=vintage] #brandEdit{font-style:italic;letter-spacing:.01em}
-body[data-theme=dark] .screen:not(#admin){
+body[data-theme=vintage] #brandEdit{font-style:italic;font-weight:600;letter-spacing:.02em}
+body[data-theme=vintage] .screen:not(#admin) .eyebrow{font-style:italic}
+body[data-theme=dark] :is(.screen:not(#admin),#msg,#confirm){
   --ink:#0D0D0D; --panel:#161616; --panel2:#1E1E1E; --line:#2E2B28; --fg:#F2F0EC; --muted:#8A857E;
-  --safelight:#D8BD8A; --lamp:#D8BD8A; --onaccent:#141210; --sel:#1F1B14; --glow:#221D15;
-  --display:'Italiana',serif; --body:'IBM Plex Sans KR',-apple-system,sans-serif; --radius:3px; --bradius:2px}
-body[data-theme=dark] #brandEdit{letter-spacing:.28em;width:auto;font-weight:400}
-body[data-theme=dark] .ask{font-weight:300;letter-spacing:.04em}
+  --safelight:#D6C9A8; --lamp:#D6C9A8; --onaccent:#141210; --sel:#1D1B17; --glow:#1D1B17;
+  --display:'Cinzel',serif; --body:'IBM Plex Sans KR',-apple-system,sans-serif; --radius:3px; --bradius:2px}
+body[data-theme=dark] #brandEdit{letter-spacing:.22em;width:auto;font-weight:400}
+body[data-theme=dark] .screen:not(#admin) :is(.ask,.mode-name){font-weight:300;letter-spacing:.04em}
 
 /* ── 공통 ─────────────────────────────── */
 .eyebrow{font-size:12px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0}
@@ -79,7 +84,7 @@ button{font-family:inherit;font-weight:500;cursor:pointer;border:0;background:no
 .btn.primary{background:var(--safelight);color:var(--onaccent,#1A0A06);border-color:var(--safelight);font-weight:700}
 .btn.ghost{background:transparent}
 .btn.sm{min-height:40px;padding:0 13px;font-size:13px}
-.btn.danger{color:var(--safelight);border-color:#4A211A}
+.btn.danger{color:#E07A7A;border-color:#4A2626}
 .btn:focus-visible{outline:2px solid var(--lamp);outline-offset:3px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 input[type=text],input[type=number],select{
@@ -270,9 +275,9 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
   box-shadow:0 10px 40px rgba(0,0,0,.5);touch-action:none}
 .editor .layer{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat}
 .editor .frameLayer{opacity:.75;pointer-events:none}
-.slot{position:absolute;border:2px solid var(--safelight);background:rgba(255,77,46,.14);
+.slot{position:absolute;border:2px solid var(--safelight);background:rgba(214,201,168,.14);
   display:flex;align-items:center;justify-content:center;cursor:move;touch-action:none}
-.slot.sel{border-color:var(--lamp);background:rgba(255,194,71,.2);z-index:4}
+.slot.sel{border-color:var(--lamp);background:rgba(159,180,199,.2);z-index:4}
 .slot span{font-family:var(--display);font-size:clamp(13px,2.4vw,22px);color:#fff;
   text-shadow:0 1px 4px rgba(0,0,0,.8);pointer-events:none}
 .slot .hd{position:absolute;right:-9px;bottom:-9px;width:22px;height:22px;border-radius:50%;
@@ -328,12 +333,12 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 #msg{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));
   transform:translateX(-50%);z-index:60;background:var(--panel);border:1px solid var(--line);
   padding:12px 19px;border-radius:4px;font-size:14px;max-width:min(90vw,42ch);
-  text-align:center;line-height:1.5}
+  text-align:center;line-height:1.5;color:var(--fg);font-family:var(--body)}
 
 #confirm{position:fixed;inset:0;z-index:70;background:rgba(6,4,4,.82);
   display:flex;align-items:center;justify-content:center;padding:20px}
 .cbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px;
-  max-width:34ch;display:flex;flex-direction:column;gap:15px}
+  max-width:34ch;display:flex;flex-direction:column;gap:15px;color:var(--fg)}
 .cbox p{margin:0;font-size:15px;line-height:1.6}
 
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
