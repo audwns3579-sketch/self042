@@ -1912,7 +1912,9 @@ $("printBtn").addEventListener("click", function(){
 function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
   S.printing = true; syncPrintBtn(); say("인화를 보내는 중입니다…", 0);
-  fetch(relayUrl()+"/print-epson", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
+  // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
+  var L = enabledLayouts()[cur], bg = !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : "FFFFFF";
+  fetch(relayUrl()+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
