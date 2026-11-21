@@ -226,6 +226,19 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
 .hint{font-size:13px;color:var(--muted);text-align:center;line-height:1.6;max-width:36ch}
+/* QR 은 지금의 반 크기(사용자 요청). qrcode 가 cellSize 5 로 약 205px 를 그려서 화면에서만 줄입니다 */
+#qrImg svg{display:block;width:104px;height:104px}
+/* 가로 화면: 왼쪽에 인화 미리보기, 오른쪽 빈 곳에 QR · 버튼 · 안내(사용자 요청). 세로 화면은 위아래로 쌓입니다. */
+@media (min-aspect-ratio:1/1){
+  #result{display:grid;grid-template-columns:auto minmax(240px,320px);grid-template-rows:auto auto auto auto;
+    column-gap:56px;row-gap:16px;align-content:center;justify-content:center;justify-items:center}
+  #result > .eyebrow{grid-column:1;grid-row:1}
+  #resultFilm,#resultImg{grid-column:1;grid-row:2 / span 3}   /* .film 은 display:contents 라 img 가 격자 칸이 됩니다 */
+  #resultImg{max-height:calc(100vh - 110px)}
+  #qrBox{grid-column:2;grid-row:2;align-self:end}
+  #result .result-actions{grid-column:2;grid-row:3;flex-direction:column;align-items:stretch;width:100%}
+  #result > .hint{grid-column:2;grid-row:4;align-self:start}
+}
 
 /* ── 인스탁스 — 미리보기를 실제 와이드 필름 모양으로 ──
    필름 108 × 86mm, 사진 창 99 × 62mm. 가로: 양옆 4.5, 위 6, 아래 18mm.
