@@ -1214,12 +1214,14 @@ function waitRelease(n, total){
 /* 다 쓴 캔버스는 바로 비웁니다. iOS Safari는 페이지 전체의 캔버스 메모리가
    한도를 넘으면 오류 없이 잡티 섞인 그림을 돌려줍니다. */
 var lastResultUrl = null;
-function setResult(blob){
+/* origs: 찍은 원본(캔버스). 원본은 아이맥 보관 폴더에만 올립니다(손님 QR 에는 프레임만). */
+function setResult(blob, origs){
   S.blob = blob; S.printed = false;
   if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
   lastResultUrl = URL.createObjectURL(blob);
   $("resultImg").src = lastResultUrl;
-  showQr(blob);
+  // 원본 캔버스는 바로 뒤에 비워지므로 지금 JPG 글자로 바꿔 둡니다
+  showQr(blob, (origs||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }));
 }
 
 /* ── 구글 드라이브 QR ──
@@ -1242,14 +1244,30 @@ function blobBase64(blob){
     r.readAsDataURL(blob);
   });
 }
-function showQr(blob){
+function stampName(d){
+  function p(n){ return ("0"+n).slice(-2); }
+  return p(d.getFullYear()%100)+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+function postDrive(o){
+  o.key = DRIVE_KEY;
+  // text/plain 으로 보내야 구글 앱스 스크립트가 미리 묻기(CORS) 없이 받습니다
+  return fetch(DRIVE_URL, { method:"POST", body: JSON.stringify(o) }).then(function(res){ return res.json(); });
+}
+function showQr(blob, origs){
   var box=$("qrBox"), img=$("qrImg"), note=$("qrNote");
   if (!DRIVE_URL){ box.hidden=true; return; }
+  var sub=stampName(new Date());   // 손님 폴더 이름. 프레임과 원본이 같은 폴더에 들어갑니다
   box.hidden=false; img.innerHTML=""; note.textContent="QR 을 만드는 중입니다…";
-  Promise.all([loadQrLib(), blobBase64(blob)]).then(function(r){
-    // text/plain 으로 보내야 구글 앱스 스크립트가 미리 묻기(CORS) 없이 받습니다
-    return fetch(DRIVE_URL, { method:"POST", body: JSON.stringify({ key:DRIVE_KEY, img:r[1] }) });
-  }).then(function(res){ return res.json(); }).then(function(j){
+  var up = Promise.all([loadQrLib(), blobBase64(blob)]).then(function(r){
+    return postDrive({ img:r[1], folder:sub });
+  });
+  // 원본은 프레임이 올라간 뒤 한 장씩 올립니다(같은 이름 폴더가 둘 생기지 않게). 손님 화면에는 안 보이게 조용히 합니다
+  if (origs && origs.length) up.catch(function(){}).then(function(){
+    return origs.reduce(function(pr, b64, i){
+      return pr.then(function(){ return postDrive({ img:b64, folder:sub, orig:i+1 }); }).catch(function(e){ console.warn("원본 "+(i+1)+" 을 올리지 못했습니다", e); });
+    }, Promise.resolve());
+  });
+  up.then(function(j){
     if (S.blob !== blob) return;   // 그사이 다시 찍었으면 옛 QR 은 버립니다
     if (!j.ok) throw new Error(j.error || "올리지 못했습니다");
     // 드라이브 보기 화면을 거치면 다운로드가 새 창을 열어 두 번 묻습니다(사용자 시험). 사진 원본을 바로 엽니다 — 길게 눌러 사진 앱에 저장
@@ -1297,7 +1315,7 @@ function runSession(){
     if (S.cancelled || S.shots.length<need) return;
     if (pick){ stopStream(); releaseAwake(); openPick(L, shotCount(L)); return; }
     return renderPrint(L, S.shots).then(function(blob){
-      setResult(blob);
+      setResult(blob, S.shots);
       freeCanvases(S.shots); S.shots=[];
       setPrintPage(L);
       stopStream(); releaseAwake(); show(resultEl);
@@ -1645,7 +1663,7 @@ $("pickDone").addEventListener("click", function(){
   var shots=P.picks.map(function(i){ return S.shots[i]; });
   $("pickDone").disabled=true;
   renderPrint(P.L, shots, P.look).then(function(blob){
-    setResult(blob);
+    setResult(blob, S.shots);
     closePick(); freeCanvases(S.shots); S.shots=[];
     setPrintPage(P.L); show(resultEl);
   });

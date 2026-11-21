@@ -1,9 +1,9 @@
 /*
   셀프042 — 구글 드라이브로 사진 받기 (Google Apps Script)
   ---------------------------------------------------------------
-  아이패드 부스 앱이 인화 사진을 보내면 드라이브에 두 곳으로 저장합니다.
+  아이패드 부스 앱이 인화 사진을 보내면 드라이브에 두 곳으로 저장합니다. 찍은 원본은 "셀프042 사진" 에만 저장합니다.
     · "셀프042 QR"   — 손님이 QR 로 받는 곳. 링크가 있는 사람은 볼 수 있고, 2일 지나면 휴지통으로 옮깁니다.
-    · "셀프042 사진" — 보관용. 지우지 않습니다. 아이맥의 "Google Drive" 앱으로 이 폴더를 받으면 자동으로 아이맥에 들어옵니다.
+    · "셀프042 사진" — 보관용. 손님마다 폴더 하나(프레임 + 원본_01.jpg …). 지우지 않습니다. 아이맥의 "Google Drive" 앱으로 이 폴더를 받으면 자동으로 아이맥에 들어옵니다.
 
   올리는 법은 셀프042/README.md 의 "구글 드라이브 QR" 을 보세요.
   KEY 는 부스 앱 app.js 의 DRIVE_KEY 와 같아야 합니다.
@@ -18,11 +18,20 @@ function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     if (body.key !== KEY) return reply({ ok: false, error: "key" });
+    // 손님마다 보관 폴더 안에 "251121_143005" 같은 폴더를 하나 만들어 프레임과 원본을 같이 담습니다
+    var sub = /^\d{6}_\d{6}$/.test(body.folder || "") ? body.folder : "";
+    var keep = sub ? folder(sub, folder(KEEP_FOLDER)) : folder(KEEP_FOLDER);
+    // 찍은 원본은 아이맥(보관 폴더)에만 둡니다. QR 링크는 만들지 않습니다
+    if (body.orig) {
+      var n = ("0" + (parseInt(body.orig, 10) || 0)).slice(-2);
+      keep.createFile(Utilities.newBlob(Utilities.base64Decode(body.img), "image/jpeg", "원본_" + n + ".jpg"));
+      return reply({ ok: true });
+    }
     var name = "self042_" + Utilities.formatDate(new Date(), "Asia/Seoul", "yyMMdd_HHmmss") + ".jpg";
     var blob = Utilities.newBlob(Utilities.base64Decode(body.img), "image/jpeg", name);
     var f = folder(SHARE_FOLDER).createFile(blob);
     f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    folder(KEEP_FOLDER).createFile(blob.copyBlob().setName(name));
+    keep.createFile(blob.copyBlob().setName(name));
     return reply({ ok: true, url: "https://drive.google.com/file/d/" + f.getId() + "/view" });
   } catch (err) {
     return reply({ ok: false, error: String(err) });
@@ -50,9 +59,11 @@ function setup() {
   folder(KEEP_FOLDER);
 }
 
-function folder(name) {
-  var it = DriveApp.getFoldersByName(name);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+/* parent 가 있으면 그 안에서 찾고, 없으면 드라이브 맨 위에서 찾습니다. 없으면 만듭니다. */
+function folder(name, parent) {
+  var it = parent ? parent.getFoldersByName(name) : DriveApp.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
 }
 
 function reply(obj) {
