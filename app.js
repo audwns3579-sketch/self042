@@ -1215,13 +1215,14 @@ function waitRelease(n, total){
    한도를 넘으면 오류 없이 잡티 섞인 그림을 돌려줍니다. */
 var lastResultUrl = null;
 /* origs: 찍은 원본(캔버스). 원본은 아이맥 보관 폴더에만 올립니다(손님 QR 에는 프레임만). */
-function setResult(blob, origs){
+function setResult(blob, origs, sub){
   S.blob = blob; S.printed = false;
+  S.sub = sub || stampName(new Date());   // 손님 폴더 이름. 좌우 반전으로 다시 만들어도 같은 폴더에 넣습니다
   if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
   lastResultUrl = URL.createObjectURL(blob);
   $("resultImg").src = lastResultUrl;
   // 원본 캔버스는 바로 뒤에 비워지므로 지금 JPG 글자로 바꿔 둡니다
-  showQr(blob, (origs||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }));
+  showQr(blob, S.sub, (origs||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }));
 }
 
 /* ── 구글 드라이브 QR ──
@@ -1253,10 +1254,9 @@ function postDrive(o){
   // text/plain 으로 보내야 구글 앱스 스크립트가 미리 묻기(CORS) 없이 받습니다
   return fetch(DRIVE_URL, { method:"POST", body: JSON.stringify(o) }).then(function(res){ return res.json(); });
 }
-function showQr(blob, origs){
+function showQr(blob, sub, origs){
   var box=$("qrBox"), img=$("qrImg"), note=$("qrNote");
   if (!DRIVE_URL){ box.hidden=true; return; }
-  var sub=stampName(new Date());   // 손님 폴더 이름. 프레임과 원본이 같은 폴더에 들어갑니다
   box.hidden=false; img.innerHTML=""; note.textContent="QR 을 만드는 중입니다…";
   var up = Promise.all([loadQrLib(), blobBase64(blob)]).then(function(r){
     return postDrive({ img:r[1], folder:sub });
@@ -1316,7 +1316,7 @@ function runSession(){
     if (pick){ stopStream(); releaseAwake(); openPick(L, shotCount(L)); return; }
     return renderPrint(L, S.shots).then(function(blob){
       setResult(blob, S.shots);
-      freeCanvases(S.shots); S.shots=[];
+      keepResult(L, S.shots, null); S.shots=[];
       setPrintPage(L);
       stopStream(); releaseAwake(); show(resultEl);
     });
@@ -1427,8 +1427,9 @@ function lookCanvas(src, f, w, h){
   while (mem.keys.length>8){ var old=mem.keys.shift(); free(mem.map[old]); delete mem.map[old]; }
   return out;
 }
-/* lk: 입힐 색감(없으면 사진 그대로). 카메라로 찍은 사진은 찍을 때 이미 보정이 들어가 있어 lk 를 주지 않습니다. */
-function renderPrint(L, shots, lk){
+/* lk: 입힐 색감(없으면 사진 그대로). 카메라로 찍은 사진은 찍을 때 이미 보정이 들어가 있어 lk 를 주지 않습니다.
+   flip: 칸 안의 사진만 좌우로 뒤집습니다(결과 화면 "좌우 반전"). 프레임 글씨는 그대로입니다. */
+function renderPrint(L, shots, lk, flip){
   var c=document.createElement("canvas");
   c.width=L.canvas.w; c.height=L.canvas.h;
   var ctx=c.getContext("2d");
@@ -1449,7 +1450,9 @@ function renderPrint(L, shots, lk){
         if (lk) src = lookCanvas(src, lk, s.w, s.h);
         // r: 사진 모서리 둥글기(흑백 3컷 띠). 칸 모양으로 잘라 그립니다.
         if (s.r){ ctx.save(); roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.clip(); }
+        if (flip){ ctx.save(); ctx.translate(2*s.x+s.w, 0); ctx.scale(-1, 1); }
         drawCover(ctx, src, s.x, s.y, s.w, s.h);
+        if (flip) ctx.restore();
         // 비네팅은 칸마다 겁니다. 촬영 화면에서 보이던 것과 같은 모양이 됩니다.
         drawVignette(ctx, s.x, s.y, s.w, s.h, look);
         if (s.r) ctx.restore();
@@ -1664,7 +1667,8 @@ $("pickDone").addEventListener("click", function(){
   $("pickDone").disabled=true;
   renderPrint(P.L, shots, P.look).then(function(blob){
     setResult(blob, S.shots);
-    closePick(); freeCanvases(S.shots); S.shots=[];
+    closePick(); keepResult(P.L, shots, P.look);
+    freeCanvases(S.shots.filter(function(c){ return shots.indexOf(c) < 0; })); S.shots=[];
     setPrintPage(P.L); show(resultEl);
   });
 });
@@ -1717,7 +1721,24 @@ $("flipBtn").addEventListener("click", function(){
   openCamera().then(applyPreviewFilter).catch(function(e){ say(cameraError(e)); });
 });
 $("againBtn").addEventListener("click", function(){
-  S.blob=null; freeCanvases(S.shots); S.shots=[]; hush(); readyMode(true); show(setupEl);
+  S.blob=null; freeCanvases(S.shots); S.shots=[]; keepResult(null); hush(); readyMode(true); show(setupEl);
+});
+/* 좌우 반전 — 손님이 고른 사진을 남겨 두었다가 칸 안의 사진만 뒤집어 다시 만듭니다(손님 요청).
+   인화를 보낸 뒤에는 막습니다(다시 만들면 인화를 한 번 더 할 수 있게 되므로). */
+function keepResult(L, shots, look){
+  if (S.res) freeCanvases(S.res.shots);
+  S.res = L ? { L:L, shots:shots, look:look, flip:false } : null;
+  syncPrintBtn();
+}
+$("mirrorBtn").addEventListener("click", function(){
+  var r=S.res, b=$("mirrorBtn");
+  if (!r || S.printing || S.printed || b.disabled) return;
+  b.disabled=true; r.flip=!r.flip;
+  renderPrint(r.L, r.shots, r.look, r.flip).then(function(blob){
+    if (S.res !== r) return;   // 그사이 다시 찍기를 눌렀습니다
+    setResult(blob, null, S.sub);
+    b.disabled=false; syncPrintBtn();
+  });
 });
 /* 인쇄는 웹 페이지(window.print)가 아니라 사진 파일을 공유 창으로 보냅니다. 손님이 "프린트" 를 고르면 사진 앱에서 뽑듯이 나가서
    사파리가 붙이는 날짜·주소가 없고 한 장에 맞춰집니다(아이패드 시험에서 두 장으로 나뉘고 날짜·주소가 찍혀 바꿈, 사용자 요청). */
@@ -1752,6 +1773,8 @@ function syncPrintBtn(){
   var direct = instaxOn() || !!relayUrl();   // 맥으로 바로 뽑는 경우(인스탁스·엡손)
   b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
   b.disabled = direct && (S.printing || S.printed);
+  $("mirrorBtn").hidden = !S.res;
+  $("mirrorBtn").disabled = !!(S.printing || S.printed);
   // 인스탁스는 인화가 주인공입니다. 버튼을 앞으로 빼고 강조합니다.
   b.classList.toggle("primary", instaxOn());
   $("saveBtn").classList.toggle("primary", !instaxOn());
