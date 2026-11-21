@@ -1252,7 +1252,9 @@ function showQr(blob){
   }).then(function(res){ return res.json(); }).then(function(j){
     if (S.blob !== blob) return;   // 그사이 다시 찍었으면 옛 QR 은 버립니다
     if (!j.ok) throw new Error(j.error || "올리지 못했습니다");
-    var q=qrcode(0, "M"); q.addData(j.url); q.make();
+    // 드라이브 보기 화면을 거치면 다운로드가 새 창을 열어 두 번 묻습니다(사용자 시험). 사진 원본을 바로 엽니다 — 길게 눌러 사진 앱에 저장
+    var id=(String(j.url).match(/\/d\/([\w-]+)/)||[])[1];
+    var q=qrcode(0, "M"); q.addData(id ? "https://drive.google.com/uc?export=view&id="+id : j.url); q.make();
     img.innerHTML=q.createSvgTag({ cellSize:5, margin:2 });
     note.textContent="휴대폰 카메라로 찍으면 사진을 받을 수 있습니다 (2일 동안)";
   }).catch(function(e){
