@@ -112,7 +112,7 @@ var SHOOT_MODES = [{id:"fixed", name:"정해진 컷만"}, {id:"pick", name:"많�
 var PICK_SHOTS = 10;    // 많이 찍고 고르기에서 찍는 장 수 (한 팀 10장, 사용자 요청)
 /* 구글 드라이브 QR — drive/Code.gs 를 구글 계정에 올리고 받은 "웹 앱 URL" 을 DRIVE_URL 에 넣습니다(README).
    비어 있으면 QR 을 만들지 않습니다. DRIVE_KEY 는 Code.gs 의 KEY 와 같아야 합니다. */
-var DRIVE_URL = "";
+var DRIVE_URL = "https://script.google.com/macros/s/AKfycbw6wntoNj67kgaV3uMnD_3UoB-w8Eq6c18vqQnuiYfNu10osvVWlUTIS-JW9s3aGoV2bQ/exec";
 var DRIVE_KEY = "self042";
 var QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
 
