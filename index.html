@@ -252,7 +252,7 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 #penSizes{justify-content:flex-start}
 #penSizes .chip{padding:12px 22px;font-size:17px}
 .doodle-edit .btn{flex:1}
-#doodleDone,#doodleSkip{min-height:60px;font-size:19px}
+#doodleDone{min-height:60px;font-size:19px}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
@@ -496,8 +496,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       <p class="doodle-lab">굵기</p>
       <div class="chips" id="penSizes" role="group" aria-label="굵기"></div>
       <div class="row doodle-edit"><button class="btn" id="undoBtn">한 번 지우기</button><button class="btn" id="clearBtn">다 지우기</button></div>
-      <button class="btn primary" id="doodleDone">이대로 인화하기</button>
-      <button class="btn ghost" id="doodleSkip">꾸미지 않고 인화</button>
+      <button class="btn primary" id="doodleDone">다음</button>
     </div>
   </div>
 </section>

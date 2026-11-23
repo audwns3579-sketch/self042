@@ -1752,7 +1752,6 @@ $("doodleCv").addEventListener("pointercancel", doodleUp);
 $("undoBtn").addEventListener("click", function(){ D.strokes.pop(); fitDoodle(); });
 $("clearBtn").addEventListener("click", function(){ D.strokes=[]; fitDoodle(); });
 $("doodleDone").addEventListener("click", function(){ finishDoodle(true); });
-$("doodleSkip").addEventListener("click", function(){ finishDoodle(false); });
 /* 낙서를 인화 사진 크기 그대로 얹어 새 JPG 를 만듭니다. 낙서가 없으면 그대로 돌려줍니다. */
 function applyDoodle(blob, strokes){
   if (!strokes || !strokes.length) return Promise.resolve(blob);
