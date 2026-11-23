@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 23,
+    version: 24,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -41,6 +41,25 @@ function defaultConfig(){
         ],
         texts: [],
         cut: { on:true, x:750, color:"#DE9240" }   // 가운데 절취선, 필름 글씨색 (사용자 요청)
+      },
+      /* 옛날필름 4컷 — 인생네컷 세로와 같은 필름 띠에서 사진 사이 띠를 없애 위아래로 붙인 판(사용자 요청, 견본 B "세로로 늘림").
+         칸 486 × 506, 칸 사이 2px(얇은 테 선만), 위 끝 33 (33 + 4 × 506 + 3 × 2 = 2063 ≤ 2100). 10장 중 서로 다른 8장을 고릅니다. */
+      {
+        id: "film8t", name: "옛날필름 4컷", enabled: true, instax: false, style: "film",
+        canvas: { w:1500, h:2100 },
+        frame: null,
+        slots: [
+          {x:132, y:33,   w:486, h:506, shot:0},
+          {x:132, y:541,  w:486, h:506, shot:1},
+          {x:132, y:1049, w:486, h:506, shot:2},
+          {x:132, y:1557, w:486, h:506, shot:3},
+          {x:882, y:33,   w:486, h:506, shot:4},
+          {x:882, y:541,  w:486, h:506, shot:5},
+          {x:882, y:1049, w:486, h:506, shot:6},
+          {x:882, y:1557, w:486, h:506, shot:7}
+        ],
+        texts: [],
+        cut: { on:true, x:750, color:"#DE9240" }
       },
       /* 포토샵 "흑백 3컷 띠 5x7.jsx" 와 같은 숫자입니다. 5×7 세로, 검은 띠(#202020) 2줄 × 흑백 사진 3칸.
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
@@ -255,7 +274,13 @@ function migrate(cfg){
     if (!d.frameSrc) return;
     (cfg.layouts || []).forEach(function(l){ if (l.id === d.id && !l.frame){ l.slots = d.slots; l.frameSrc = d.frameSrc; l.bg = d.bg; } });
   });
-  if (cfg.version >= 8){ cfg.version = 23; return cfg; }
+  // 셀프042: 옛날필름 4컷을 나중에 넣었습니다. 한 번만 인생네컷 바로 뒤에 붙입니다.
+  if (cfg.version < 24 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "film8t"; })){
+    var nd = defaultConfig().layouts.filter(function(d){ return d.id === "film8t"; })[0];
+    var at = cfg.layouts.map(function(l){ return l.id; }).indexOf("film8");
+    cfg.layouts.splice(at >= 0 ? at+1 : cfg.layouts.length, 0, nd);
+  }
+  if (cfg.version >= 8){ cfg.version = 24; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -1428,6 +1453,7 @@ var FRAME_COLORS = {
     { id:"pinkchk", name:"핑크 체커", dot:"chk:#F9C6DC", check:"#F9C6DC", spark:"#F07AAE", bg:"#F9C6DC" }
   ]
 };
+FRAME_COLORS.film8t = FRAME_COLORS.film8;   // 옛날필름 4컷도 인생네컷과 같은 색
 var frameColorId = null;   // 손님이 고른 색. null 이면 첫 번째(예전 색). 프레임을 새로 고르면 비웁니다
 function frameColor(L){
   var list = L && FRAME_COLORS[L.id]; if (!list) return null;
@@ -1508,11 +1534,11 @@ function drawFilmText(ctx, L){
     var s=Math.floor(c.x/g.thick), a=c.y, num=String(k+1);
     var front=s*g.thick+g.outer/2, back=(s+1)*g.thick-g.outer/2;
     txt(FILM.text1, a+14, front);
-    txt(FILM.text2, a+Math.round(g.cell*0.42), front);
-    txt(num, a+g.cell-30, front);
+    txt(FILM.text2, a+Math.round(c.h*0.42), front);
+    txt(num, a+c.h-30, front);
     ctx.beginPath(); ctx.moveTo(back-ah, a+14); ctx.lineTo(back, a+14+aw); ctx.lineTo(back+ah, a+14); ctx.closePath(); ctx.fill();
     txt(num+"A", a+22+aw, back);
-    txt(num, a+g.cell-30, back);
+    txt(num, a+c.h-30, back);
   });
   ctx.restore();
 }
