@@ -1637,8 +1637,9 @@ $("pickGrid").addEventListener("click", function(e){
 });
 function setPickAr(){
   // 인스탁스는 컷 수와 상관없이 사진 목록 크기를 같게 합니다(가로 3:2, 세로 2:3). 칸 모양으로 잘리는 건 오른쪽 미리보기가 보여 줍니다.
-  // 셀프042: 찍은 사진(후지 HDMI, 3:2)을 잘리지 않게 통째로 크게 보여 줍니다. 칸 모양으로 잘리는 건 오른쪽 미리보기가 보여 줍니다.
-  var ar = "3 / 2";
+  // 셀프042: 촬영 화면과 같은 칸 모양(첫 칸 가로:세로, 인생네컷 1:1)으로 가운데를 잘라 보여 줍니다(사용자 요청).
+  var s0 = (P.L && P.L.slots[0]) || {w:1,h:1};
+  var ar = s0.w+" / "+s0.h;
   $("pickGrid").style.setProperty("--ar", ar);
   setFilm(P.L);
 }

@@ -199,8 +199,9 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
   #pick .ask{font-size:clamp(22px,2.6vw,32px);line-height:1.25}
   .pick-body{flex:1 1 0;min-height:340px;flex-wrap:nowrap;gap:32px;align-items:stretch}
   .pick-left{flex:1 1 auto;min-width:0;align-self:stretch;min-height:0;justify-content:flex-start}
-  .pick-left .pick-grid{width:100%;flex:1 1 auto;min-height:0;max-height:none;align-content:start}
-  .pick-side{flex:0 0 clamp(300px,32vw,400px);gap:14px;justify-content:center}
+  /* 목록 폭은 예전(100vw - 464px)의 80%, 미리보기 칸은 640px 까지 키움(사용자 요청, 1920 화면에서 목록 1165·필름 614×860) */
+  .pick-left .pick-grid{width:calc((100vw - 464px) * .8);max-width:100%;flex:1 1 auto;min-height:0;max-height:none;align-content:start}
+  .pick-side{flex:0 0 clamp(300px,34vw,640px);gap:14px;justify-content:center}
   #pick #pickPrev{max-height:calc(100vh - 220px);max-width:100%}
   .pick-actions .btn{min-height:64px;font-size:20px}
 }
