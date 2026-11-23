@@ -1814,7 +1814,7 @@ var STK_TABS = [
   { id:"letter", name:"글자",   size:0.1 },
   { id:"tape",   name:"테이프", size:0.35 }
 ];
-var STK_MIN = 0.04, STK_MAX = 0.95, STK_TURN = 15;   // 가장 작게·크게, 돌리기 한 번 각도
+var STK_MIN = 0.04, STK_MAX = 0.95;   // 가장 작게·크게(사진 너비에 대한 폭)
 STICKERS.forEach(function(t){
   t.tab = "basic";
   t.url = "data:image/svg+xml;charset=utf-8,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+t.w+' '+t.h+'" width="'+t.w*4+'" height="'+t.h*4+'">'+t.svg+'</svg>');
@@ -1861,18 +1861,35 @@ function openSticker(blob, origs){
 }
 function clearStickers(){
   K.items.forEach(function(it){ it.el.remove(); });
-  K.items=[]; K.sel=null; K.drag=null;
+  K.items=[]; K.sel=null; K.drag=null; K.hdrag=null; stickerHandles();
 }
 function placeSticker(it){
   var t=stickerById(it.id);
   it.el.style.left=(it.x*100)+"%"; it.el.style.top=(it.y*100)+"%"; it.el.style.width=(it.s*100)+"%";
   it.el.style.transform="translate(-50%,-50%) rotate("+it.r+"deg)";
   it.el.style.aspectRatio=t.w+" / "+t.h;
+  if (it === K.sel) stickerHandles();
 }
+/* 고른 스티커 모서리의 손잡이 3개(✕ 빼기 · ↻ 돌리기 · ⤡ 크기). 스티커가 돌아가면 손잡이도 같이 돕니다(사용자 요청, 견본 A).
+   예전 크게·작게·돌리기·빼기 버튼 줄은 다음 버튼 바로 위라 다음이 잘못 눌려서 뺐습니다. */
+function stickerHandles(){
+  var box=$("stkHandles"), it=K.sel;
+  box.hidden = !it || K.busy;
+  if (box.hidden) return;
+  var st=$("stkStage"), W=st.clientWidth, H=st.clientHeight, t=stickerById(it.id);
+  var w=it.s*W, h=w*t.h/t.w, cx=it.x*W, cy=it.y*H, a=it.r*Math.PI/180, co=Math.cos(a), si=Math.sin(a), pad=12;
+  var hs=box.children;
+  function at(el, dx, dy){ el.style.left=(cx+dx*co-dy*si)+"px"; el.style.top=(cy+dx*si+dy*co)+"px"; }
+  at(hs[0], -(w/2+pad), -(h/2+pad));   // ✕ 왼쪽 위
+  at(hs[1],  (w/2+pad), -(h/2+pad));   // ↻ 오른쪽 위
+  at(hs[2],  (w/2+pad),  (h/2+pad));   // ⤡ 오른쪽 아래
+}
+window.addEventListener("resize", function(){ if (!stickerEl.hidden) stickerHandles(); });
 function selectSticker(it){
   if (K.sel) K.sel.el.classList.remove("sel");
   K.sel=it || null;
   if (K.sel) K.sel.el.classList.add("sel");
+  stickerHandles();
 }
 function addSticker(id){
   var t=stickerById(id), el=document.createElement("img"), size=tabById(t.tab).size;
@@ -1902,14 +1919,25 @@ $("stkStage").addEventListener("pointermove", function(e){
 function stickerUp(){ K.drag=null; }
 $("stkStage").addEventListener("pointerup", stickerUp);
 $("stkStage").addEventListener("pointercancel", stickerUp);
-function editSticker(f){ if (K.sel && !K.busy){ f(K.sel); placeSticker(K.sel); } }
-$("stkBig").addEventListener("click", function(){ editSticker(function(it){ it.s=Math.min(STK_MAX, it.s*1.2); }); });
-$("stkSmall").addEventListener("click", function(){ editSticker(function(it){ it.s=Math.max(STK_MIN, it.s/1.2); }); });
-$("stkRot").addEventListener("click", function(){ editSticker(function(it){ it.r=(it.r+STK_TURN)%360; }); });
-$("stkDel").addEventListener("click", function(){
-  if (!K.sel || K.busy) return;
-  K.sel.el.remove(); K.items.splice(K.items.indexOf(K.sel),1); K.sel=null;
+/* 손잡이: ✕ 는 누르면 빼고, ↻ 는 끄는 방향으로 돌리고, ⤡ 는 스티커 가운데에서 멀어지면 커지고 가까워지면 작아집니다 */
+$("stkHandles").addEventListener("pointerdown", function(e){
+  var h=e.target.closest(".stk-h"), it=K.sel; if (!h || !it || K.busy) return;
+  e.preventDefault(); e.stopPropagation();
+  if (h.dataset.a === "del"){ it.el.remove(); K.items.splice(K.items.indexOf(it),1); selectSticker(null); return; }
+  h.setPointerCapture(e.pointerId);
+  var r=$("stkStage").getBoundingClientRect(), cx=r.left+it.x*r.width, cy=r.top+it.y*r.height;
+  K.hdrag={ a:h.dataset.a, it:it, cx:cx, cy:cy, W:r.width,
+            d0:Math.max(1, Math.hypot(e.clientX-cx, e.clientY-cy)), a0:Math.atan2(e.clientY-cy, e.clientX-cx), s0:it.s, r0:it.r };
 });
+$("stkHandles").addEventListener("pointermove", function(e){
+  var g=K.hdrag; if (!g) return;
+  if (g.a === "size") g.it.s = Math.min(STK_MAX, Math.max(STK_MIN, g.s0 * Math.hypot(e.clientX-g.cx, e.clientY-g.cy) / g.d0));
+  else g.it.r = (g.r0 + (Math.atan2(e.clientY-g.cy, e.clientX-g.cx) - g.a0) * 180/Math.PI + 360) % 360;
+  placeSticker(g.it);
+});
+function handleUp(){ K.hdrag=null; }
+$("stkHandles").addEventListener("pointerup", handleUp);
+$("stkHandles").addEventListener("pointercancel", handleUp);
 $("stkDone").addEventListener("click", function(){ finishSticker(); });
 /* 스티커를 인화 사진 크기 그대로 붙여 새 JPG 를 만듭니다. 스티커가 없으면 그대로 돌려줍니다. */
 function applyStickers(blob, list){

@@ -264,7 +264,10 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .stk-btn{aspect-ratio:1;border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:10px;display:flex;align-items:center;justify-content:center}
 .stk-btn img{max-width:100%;max-height:100%;pointer-events:none}
 .stk-btn:active{transform:scale(.95)}
-.stk-edit .btn{flex:1;padding:0 8px}
+.stk-frame{position:relative;line-height:0}
+.stk-handles{position:absolute;inset:0;pointer-events:none}
+.stk-h{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;pointer-events:auto;touch-action:none;
+  background:var(--lamp);color:var(--onaccent,#fff);font-size:22px;line-height:48px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #stkDone{min-height:60px;font-size:19px}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
@@ -506,14 +509,20 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 <section class="screen" id="sticker" hidden>
   <h2 class="ask">스티커로 꾸며 보세요</h2>
   <div class="stk-body">
-    <div class="stk-stage" id="stkStage"><img id="stkImg" draggable="false" alt="꾸밀 인화 사진"></div>
+    <!-- 손잡이 층(stkHandles)은 사진 칸(stkStage) 밖으로 나가도 잘리지 않게 따로 둡니다 -->
+    <div class="stk-frame">
+      <div class="stk-stage" id="stkStage"><img id="stkImg" draggable="false" alt="꾸밀 인화 사진"></div>
+      <div class="stk-handles" id="stkHandles" hidden>
+        <button class="stk-h" data-a="del" aria-label="스티커 빼기">✕</button>
+        <button class="stk-h" data-a="rot" aria-label="스티커 돌리기">↻</button>
+        <button class="stk-h" data-a="size" aria-label="스티커 크기">⤡</button>
+      </div>
+    </div>
     <div class="stk-side">
       <div class="timer" id="stkTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
-      <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮길 수 있어요.</p>
+      <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮기고, 모서리 손잡이로 빼기(✕)·돌리기(↻)·크기(⤡)를 바꿔요.</p>
       <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
       <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
-      <p class="stk-lab">고른 스티커</p>
-      <div class="row stk-edit"><button class="btn" id="stkBig">크게</button><button class="btn" id="stkSmall">작게</button><button class="btn" id="stkRot">돌리기</button><button class="btn" id="stkDel">빼기</button></div>
       <button class="btn primary" id="stkDone">다음</button>
     </div>
   </div>
