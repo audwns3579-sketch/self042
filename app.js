@@ -45,7 +45,7 @@ function defaultConfig(){
       /* 옛날필름 4컷 — 인생네컷 세로와 같은 필름 띠에서 사진 사이 띠를 없애 위아래로 붙인 판(사용자 요청, 견본 B "세로로 늘림").
          칸 486 × 506, 칸 사이 2px(얇은 테 선만), 위 끝 33 (33 + 4 × 506 + 3 × 2 = 2063 ≤ 2100). 10장 중 서로 다른 8장을 고릅니다. */
       {
-        id: "film8t", name: "옛날필름 4컷", enabled: true, instax: false, style: "film",
+        id: "film8t", name: "옛날필름 4컷", enabled: true, instax: false, style: "film", bwPick: true,   // 고르기 화면에서 컬러·흑백
         canvas: { w:1500, h:2100 },
         frame: null,
         slots: [
@@ -280,6 +280,8 @@ function migrate(cfg){
     var at = cfg.layouts.map(function(l){ return l.id; }).indexOf("film8");
     cfg.layouts.splice(at >= 0 ? at+1 : cfg.layouts.length, 0, nd);
   }
+  // 옛날필름 4컷의 컬러·흑백 버튼(bwPick)을 나중에 넣었습니다. 저장된 설정에 없으면 붙입니다.
+  (cfg.layouts || []).forEach(function(l){ if (l.id === "film8t" && l.bwPick === undefined) l.bwPick = true; });
   if (cfg.version >= 8){ cfg.version = 24; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
@@ -1632,16 +1634,18 @@ var orientFixed = false;   // 가로·세로를 첫 화면에서 골랐는지(�
 var pickLookId = null;
 function pickLooks(){ return allFilters().filter(function(f){ return f.pick; }).slice(0,3); }
 function lookChips(){
-  var looks=pickLooks(), on=P.imported && looks.length>0;
-  $("pickLooks").hidden = !on; $("pickSep").hidden = !on;
+  // 옛날필름 4컷(bwPick)은 카메라로 찍은 사진도 컬러·흑백을 고릅니다(사용자 요청). 흑백은 흑백 3컷 띠와 같은 보정(bwstrip)
+  var bw = !P.imported && P.L && P.L.bwPick ? filterById("bwstrip") : null;
+  var looks = bw ? [{id:"", name:"컬러"}, {id:bw.id, name:"흑백"}] : pickLooks(), on=(P.imported || !!bw) && looks.length>0;
+  $("pickLooks").hidden = !on; $("pickSep").hidden = !on || $("pickFrames").hidden;
   if (!on){ P.look=null; return; }
   if (!looks.some(function(l){ return l.id===pickLookId; })) pickLookId=looks[0].id;
   buildChips($("pickLooks"), looks, pickLookId, false);
-  P.look=filterById(pickLookId);
+  P.look = pickLookId ? filterById(pickLookId) : null;   // 컬러("")는 찍은 그대로
 }
 $("pickLooks").addEventListener("click", function(e){
   var b=e.target.closest(".chip"); if(!b) return;
-  pickLookId=b.dataset.v; P.look=filterById(pickLookId);
+  pickLookId=b.dataset.v; P.look = pickLookId ? filterById(pickLookId) : null;
   pressOnly($("pickLooks"), pickLookId);
   refreshPick();
 });
