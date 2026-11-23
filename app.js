@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 24,
+    version: 25,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -78,6 +78,24 @@ function defaultConfig(){
         ],
         texts: [],
         cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
+      },
+      /* 흑백 3컷 붙임 — 서울숲 빈티지 포토부스 릴스처럼 흑백 사진 3장을 띠에 위아래로 붙인 판(사용자 요청, 견본 A).
+         검은 테 40, 사진 670 × 670, 사진 사이 4px 가는 선 (40 + 3 × 670 + 2 × 4 = 2058 ≤ 2100). 필름 입자·어두운 모서리(style "bwv").
+         흑백 3컷 띠처럼 3장을 골라 두 줄에 같은 사진이 들어갑니다. */
+      {
+        id: "bw3s", name: "흑백 3컷 붙임", enabled: true, instax: false, style: "bwv", look: "bwstrip", shots: 6, bg: "#121212",
+        canvas: { w:1500, h:2100 },
+        frame: null,
+        slots: [
+          {x:40,  y:40,   w:670, h:670, shot:0},
+          {x:40,  y:714,  w:670, h:670, shot:1},
+          {x:40,  y:1388, w:670, h:670, shot:2},
+          {x:790, y:40,   w:670, h:670, shot:0},
+          {x:790, y:714,  w:670, h:670, shot:1},
+          {x:790, y:1388, w:670, h:670, shot:2}
+        ],
+        texts: [],
+        cut: { on:true, x:750, color:"#5A5A5A" }
       },
       /* 카메라 8컷 — 사용자가 준 카메라 이미지 7종으로 만든 프레임 그림(frames/camera8.png, 1500×2100, 바탕은 Y2K 블루 체커(사용자 요청), 검정 카메라는 두 번).
          칸은 카메라 화면 구멍 자리(둘레 연한 띠를 6px 더 뚫고 바탕도 4px 더 비움, 칸은 그보다 사방 3px 크게, 프레임 그림이 위에 덮임). 10장 중 서로 다른 8장을 고릅니다(사용자 요청). */
@@ -282,7 +300,13 @@ function migrate(cfg){
   }
   // 옛날필름 4컷의 컬러·흑백 버튼(bwPick)을 나중에 넣었습니다. 저장된 설정에 없으면 붙입니다.
   (cfg.layouts || []).forEach(function(l){ if (l.id === "film8t" && l.bwPick === undefined) l.bwPick = true; });
-  if (cfg.version >= 8){ cfg.version = 24; return cfg; }
+  // 셀프042: 흑백 3컷 붙임을 나중에 넣었습니다. 한 번만 흑백 3컷 띠 바로 뒤에 붙입니다.
+  if (cfg.version < 25 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "bw3s"; })){
+    var nb = defaultConfig().layouts.filter(function(d){ return d.id === "bw3s"; })[0];
+    var bi = cfg.layouts.map(function(l){ return l.id; }).indexOf("bw3");
+    cfg.layouts.splice(bi >= 0 ? bi+1 : cfg.layouts.length, 0, nb);
+  }
+  if (cfg.version >= 8){ cfg.version = 25; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -480,7 +504,7 @@ function miniHtml(L){
   ctx.scale(k, k);
   if (L.style === "film") drawFilmBack(ctx, L);
   else if (L.style === "camera") drawCamBack(ctx, L);
-  else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
+  else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : L.style === "bwv" ? L.bg : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
   ctx.fillStyle = getComputedStyle($("setup")).getPropertyValue("--slot").trim() || "#C9BDB4";   // 빈 사진 칸(밝은 화면은 회색)
   L.slots.forEach(function(s){
     if (s.r){ roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.fill(); } else ctx.fillRect(s.x, s.y, s.w, s.h);
@@ -857,6 +881,22 @@ function overlayInto(ctx, w, h, f){
     ctx.fillRect(0,0,w,h);
     ctx.restore();
   }
+}
+/* 흑백 3컷 붙임(style "bwv"): 칸마다 어두운 모서리와 필름 입자. 입자 그림(256px)은 한 번 만들어 무늬로 깔아 씁니다 */
+var grainTile = null;
+function drawVintage(ctx, x, y, w, h){
+  var cx=x+w/2, cy=y+h/2, g=ctx.createRadialGradient(cx,cy,Math.min(w,h)*0.35, cx,cy,Math.max(w,h)*0.75);
+  g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,.42)");
+  ctx.save(); ctx.fillStyle=g; ctx.fillRect(x,y,w,h);
+  if (!grainTile){
+    grainTile=document.createElement("canvas"); grainTile.width=grainTile.height=256;
+    var gx=grainTile.getContext("2d"), id=gx.createImageData(256,256), d=id.data;
+    for (var i=0;i<d.length;i+=4){ var v=128+(Math.random()-0.5)*110; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    gx.putImageData(id,0,0);
+  }
+  ctx.globalCompositeOperation="overlay"; ctx.globalAlpha=0.35;
+  ctx.fillStyle=ctx.createPattern(grainTile,"repeat"); ctx.fillRect(x,y,w,h);
+  ctx.restore();
 }
 function drawVignette(ctx, x, y, w, h, f){
   if (!f.vignette) return;
@@ -1581,6 +1621,7 @@ function renderPrint(L, shots, lk, flip){
       if (L.style === "film") drawFilmBack(ctx, L);
       if (L.style === "bw"){ ctx.fillStyle = bwColor(L); ctx.fillRect(0,0,c.width,c.height); }
       if (L.style === "camera") drawCamBack(ctx, L);
+      if (L.style === "bwv"){ ctx.fillStyle = L.bg; ctx.fillRect(0,0,c.width,c.height); }
 
       var look = lk || activeFilter();
       L.slots.forEach(function(s){
@@ -1594,6 +1635,7 @@ function renderPrint(L, shots, lk, flip){
         if (flip) ctx.restore();
         // 비네팅은 칸마다 겁니다. 촬영 화면에서 보이던 것과 같은 모양이 됩니다.
         drawVignette(ctx, s.x, s.y, s.w, s.h, look);
+        if (L.style === "bwv") drawVintage(ctx, s.x, s.y, s.w, s.h);
         if (s.r) ctx.restore();
       });
       if (L.style === "film") drawFilmText(ctx, L);
