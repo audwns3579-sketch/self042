@@ -1412,29 +1412,20 @@ function drawCover(ctx, src, x, y, w, h){
 
 /* ── 프레임 모양 — 포토샵 스크립트(인생네컷세로 5x7 · 흑백 3컷 띠 5x7)의 설정값 그대로입니다 ── */
 var BW_STRIP = "#202020";                       // 흑백 3컷 띠 색 (STRIP_RGB)
-/* ── 프레임 색 — 시작 화면 3단계에서 손님이 고릅니다(사용자 요청). 목록의 첫 번째가 예전부터 쓰던 색이라, 안 고르면 그대로입니다.
+/* ── 프레임 색 — 시작 화면 3단계에서 손님이 고릅니다(사용자 요청, 프레임마다 2가지로 줄임). 목록의 첫 번째가 예전부터 쓰던 색이라, 안 고르면 그대로입니다.
    film: 필름 띠 색(바탕·사진 테·구멍·글씨·이음매), strip: 흑백 띠 색, check/fill: 카메라 8컷 바탕(체커·단색), cut: 절취선, bg: 엡손 바깥 여백. */
 var FRAME_COLORS = {
   film8: [
     { id:"black", name:"블랙",  dot:"#1B1713", film:{ color:"rgb(27,23,19)", edge:"rgb(56,48,40)", hole:"rgb(238,228,208)", text:"rgb(222,146,64)", seam:"rgb(10,8,6)", scratch:true }, cut:null, bg:"#1B1713" },
-    { id:"white", name:"화이트", dot:"#FFFFFF", film:{ color:"#FFFFFF", edge:"#E8E8E8", hole:"#E4E4E4", text:"#999999", seam:"#EBEBEB" }, cut:"#BEBEBE", bg:"#FFFFFF" },
-    { id:"cream", name:"크림",  dot:"#F4EAD8", film:{ color:"#F4EAD8", edge:"#E2D3B6", hole:"#FFFDF8", text:"#B07A3A", seam:"#E2D3B6" }, cut:"#B07A3A", bg:"#F4EAD8" },
-    { id:"pink",  name:"핑크",  dot:"#F8CFE0", film:{ color:"#F8CFE0", edge:"#F0B8CF", hole:"#FFF4F8", text:"#C0507A", seam:"#F0B8CF" }, cut:"#C0507A", bg:"#F8CFE0" },
-    { id:"sky",   name:"하늘",  dot:"#CFE3F8", film:{ color:"#CFE3F8", edge:"#B6D2F0", hole:"#F4F9FF", text:"#4A78B0", seam:"#B6D2F0" }, cut:"#4A78B0", bg:"#CFE3F8" }
+    { id:"white", name:"화이트", dot:"#FFFFFF", film:{ color:"#FFFFFF", edge:"#E8E8E8", hole:"#E4E4E4", text:"#999999", seam:"#EBEBEB" }, cut:"#BEBEBE", bg:"#FFFFFF" }
   ],
   bw3: [
     { id:"black", name:"블랙",  dot:"#202020", strip:"#202020", cut:null,      bg:"#202020" },
-    { id:"white", name:"화이트", dot:"#FFFFFF", strip:"#FFFFFF", cut:"#BEBEBE", bg:"#FFFFFF" },
-    { id:"gray",  name:"그레이", dot:"#8C8C8C", strip:"#8C8C8C", cut:"#D0D0D0", bg:"#8C8C8C" },
-    { id:"pink",  name:"핑크",  dot:"#F8CFE0", strip:"#F8CFE0", cut:"#C0507A", bg:"#F8CFE0" },
-    { id:"sky",   name:"하늘",  dot:"#CFE3F8", strip:"#CFE3F8", cut:"#4A78B0", bg:"#CFE3F8" }
+    { id:"white", name:"화이트", dot:"#FFFFFF", strip:"#FFFFFF", cut:"#BEBEBE", bg:"#FFFFFF" }
   ],
   cam8: [
     { id:"bluechk", name:"블루 체커", dot:"chk:#BAD8FA", check:"#BAD8FA", spark:"#78AAF0", bg:"#BAD8FA" },
-    { id:"pinkchk", name:"핑크 체커", dot:"chk:#F9C6DC", check:"#F9C6DC", spark:"#F07AAE", bg:"#F9C6DC" },
-    { id:"white",   name:"화이트",   dot:"#FFFFFF", fill:"#FFFFFF", bg:"#FFFFFF" },
-    { id:"ivory",   name:"아이보리", dot:"#F7F3EE", fill:"#F7F3EE", bg:"#F7F3EE" },
-    { id:"black",   name:"블랙",     dot:"#1B1B1B", fill:"#1B1B1B", bg:"#1B1B1B" }
+    { id:"pinkchk", name:"핑크 체커", dot:"chk:#F9C6DC", check:"#F9C6DC", spark:"#F07AAE", bg:"#F9C6DC" }
   ]
 };
 var frameColorId = null;   // 손님이 고른 색. null 이면 첫 번째(예전 색). 프레임을 새로 고르면 비웁니다
