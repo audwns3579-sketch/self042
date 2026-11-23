@@ -248,7 +248,9 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .stk.sel{outline:3px dashed var(--lamp);outline-offset:6px;border-radius:6px}
 .stk-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}
 .stk-lab{margin:6px 0 0;font-size:15px;color:var(--muted);line-height:1.5}
-.stk-pal{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stk-tabs{justify-content:flex-start;gap:6px}
+.stk-tabs .chip{padding:9px 14px;font-size:15px}
+.stk-pal{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:min(42vh,420px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px;align-content:start}
 .stk-btn{aspect-ratio:1;border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:10px;display:flex;align-items:center;justify-content:center}
 .stk-btn img{max-width:100%;max-height:100%;pointer-events:none}
 .stk-btn:active{transform:scale(.95)}
@@ -493,6 +495,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <div class="stk-side">
       <div class="timer" id="stkTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
       <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮길 수 있어요.</p>
+      <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
       <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
       <p class="stk-lab">고른 스티커</p>
       <div class="row stk-edit"><button class="btn" id="stkBig">크게</button><button class="btn" id="stkSmall">작게</button><button class="btn" id="stkRot">돌리기</button><button class="btn" id="stkDel">빼기</button></div>

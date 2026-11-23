@@ -1683,7 +1683,7 @@ $("pickDone").addEventListener("click", function(){
 /* ── 스티커 — 손님이 인화 사진 위에 스티커를 붙입니다(사용자 요청, 낙서 화면 대신) ──
    스티커 자리·크기는 사진 크기에 대한 비율(x·y 는 가운데 0~1, s 는 사진 너비에 대한 폭)로 모아 두었다가,
    인화 크기(1500×2100) 사진 위에 그대로 키워 붙입니다. 좌우 반전을 누르면 사진만 뒤집고 스티커는 그대로 다시 붙입니다(S.res.stickers).
-   그림은 직접 그린 기본 8종(SVG)입니다. w·h 는 viewBox 크기. */
+   기본 8종은 직접 그린 SVG(w·h 는 viewBox 크기), 나머지 탭은 아래 STICKER_FILES 의 PNG 입니다. */
 var STICKERS = [
   { id:"heart", w:100, h:100, svg:'<path d="M50 86C20 64 8 48 8 32 8 18 19 9 31 9c8 0 15 4 19 11 4-7 11-11 19-11 12 0 23 9 23 23 0 16-12 32-42 54z" fill="#F06A8A" stroke="#fff" stroke-width="5"/>' },
   { id:"star", w:100, h:100, svg:'<path d="M50 6l12 30 32 2-25 20 8 32-27-18-27 18 8-32L6 38l32-2z" fill="#F4D03F" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>' },
@@ -1694,20 +1694,52 @@ var STICKERS = [
   { id:"love", w:100, h:56, svg:'<rect x="4" y="6" width="92" height="44" rx="22" fill="#fff"/><text x="50" y="37" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="24" fill="#E8577E">LOVE</text>' },
   { id:"s042", w:100, h:56, svg:'<rect x="4" y="6" width="92" height="44" rx="8" fill="#1B1713" stroke="#C9B48A" stroke-width="3"/><text x="50" y="37" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#C9B48A">042</text>' }
 ];
-var STK_SIZE = 0.22, STK_MIN = 0.06, STK_MAX = 0.8, STK_TURN = 15;   // 처음 폭(사진 너비의 22%), 가장 작게·크게, 돌리기 한 번 각도
+/* 사용자가 준 이미지에서 오려 낸 스티커(stickers/폴더/이름.png, 흰 바탕을 지운 투명 PNG). [이름, 가로, 세로]
+   카메라는 화면 자리를 투명하게 뚫어서 뒤의 사진이 보입니다. 원본 이미지가 작아 크게 붙이면 인화에서 흐릴 수 있습니다. */
+var STICKER_FILES = {
+  camera:[["cam01",325,215],["cam02",376,244],["cam03",325,230],["cam04",364,248],["cam05",330,225],["cam06",371,315],["cam07",350,210]],
+  chrome:[["chr01",168,170],["chr02",191,265],["chr03",196,222],["chr04",154,115],["chr05",159,155],["chr06",203,217],["chr07",159,158],["chr08",213,218],["chr09",147,144],["chr10",406,311],["chr11",147,141],["chr12",143,147],["chr13",398,206],["chr14",197,270],["chr15",155,162],["chr16",141,176],["chr17",186,255],["chr18",227,223],["chr19",167,159],["chr20",143,146]],
+  letter:[["let01",60,70],["let02",52,60],["let03",56,73],["let04",58,67],["let05",71,73],["let06",62,69],["let07",67,73],["let08",66,82],["let09",39,43],["let10",16,54],["let11",40,56],["let12",39,56],["let13",39,43],["let14",40,56],["let15",39,43],["let16",27,55],["let17",60,78],["let18",59,89],["let19",62,72],["let20",72,75],["let21",67,90],["let22",73,84],["let23",71,85],["let24",69,92],["let25",53,87],["let26",64,80],["let27",69,84],["let28",67,79],["let29",57,89],["let30",70,106],["let31",54,96],["let32",49,59],["let33",68,83],["let34",73,84],["let35",61,74],["let36",62,71],["let37",71,75],["let38",65,96],["let39",77,103],["let40",67,77],["let41",67,84],["let42",63,82],["let43",52,82],["let44",67,83],["let45",61,84],["let46",78,72],["let47",73,74],["let48",62,71],["let49",63,85],["let50",74,93],["let51",76,96],["let52",53,70],["let53",67,97],["let54",68,74],["let55",65,73],["let56",67,86],["let57",67,91],["let58",68,88],["let59",70,84],["let60",71,86],["let61",39,75],["let62",79,73],["let63",87,74],["let64",58,78],["let65",66,81],["let66",74,76],["let67",68,83],["let68",72,81]],
+  tape:[["tape01",312,115],["tape02",210,91],["tape03",164,103],["tape04",280,98],["tape05",226,108],["tape06",196,81],["tape07",145,57],["tape08",161,59],["tape09",216,93],["tape10",144,54],["tape11",204,68],["tape12",134,45],["tape13",146,93],["tape14",251,67],["tape15",273,76],["tape16",253,74],["tape17",254,87],["tape18",194,65],["tape19",159,63],["tape20",207,82],["tape21",151,60],["tape22",179,72],["tape23",115,45],["tape24",231,65],["tape25",260,69],["tape26",206,67],["tape27",187,62],["tape28",217,71],["tape29",210,85],["tape30",243,69],["tape31",131,52],["tape32",206,55],["tape33",207,63],["tape34",151,73],["tape35",172,65],["tape36",184,72],["tape37",188,73],["tape38",140,58],["tape39",246,87],["tape40",157,54],["tape41",151,53],["tape42",160,65],["tape43",187,70],["tape44",148,70],["tape45",183,75],["tape46",173,62],["tape47",448,142],["tape48",239,80],["tape49",173,61],["tape50",134,51],["tape51",184,95],["tape52",218,125],["tape53",288,52],["tape54",240,46],["tape55",290,59],["tape56",136,67],["tape57",226,79],["tape58",186,58],["tape59",130,61]]
+};
+/* 탭: 이름, 처음 붙는 폭(사진 너비에 대한 비율) */
+var STK_TABS = [
+  { id:"basic",  name:"기본",   size:0.22 },
+  { id:"camera", name:"카메라", size:0.6 },
+  { id:"chrome", name:"크롬",   size:0.2 },
+  { id:"letter", name:"글자",   size:0.1 },
+  { id:"tape",   name:"테이프", size:0.35 }
+];
+var STK_MIN = 0.04, STK_MAX = 0.95, STK_TURN = 15;   // 가장 작게·크게, 돌리기 한 번 각도
 STICKERS.forEach(function(t){
+  t.tab = "basic";
   t.url = "data:image/svg+xml;charset=utf-8,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+t.w+' '+t.h+'" width="'+t.w*4+'" height="'+t.h*4+'">'+t.svg+'</svg>');
-  t.img = new Image(); t.img.src = t.url;
+});
+Object.keys(STICKER_FILES).forEach(function(tab){
+  STICKER_FILES[tab].forEach(function(f){ STICKERS.push({ id:f[0], tab:tab, w:f[1], h:f[2], url:"stickers/"+tab+"/"+f[0]+".png" }); });
 });
 function stickerById(id){ for (var i=0;i<STICKERS.length;i++) if (STICKERS[i].id===id) return STICKERS[i]; return null; }
+function stickerImg(t){ if (!t.img){ t.img = new Image(); t.img.src = t.url; } return t.img; }   // 쓸 때 처음 받습니다
+function tabById(id){ for (var i=0;i<STK_TABS.length;i++) if (STK_TABS[i].id===id) return STK_TABS[i]; return STK_TABS[0]; }
 var K = { blob:null, origs:null, url:null, items:[], sel:null, drag:null, stop:null, busy:false };
+var stkTab = "basic";
+function buildStickerPal(){
+  var pal=$("stkPal"); pal.innerHTML=""; pal.scrollTop=0;
+  STICKERS.forEach(function(t){
+    if (t.tab !== stkTab) return;
+    var b=document.createElement("button"), im=document.createElement("img");
+    b.className="stk-btn"; b.dataset.id=t.id; b.setAttribute("aria-label", t.id+" 스티커");
+    im.src=t.url; im.alt=""; im.loading="lazy"; im.draggable=false;
+    b.appendChild(im); pal.appendChild(b);
+  });
+}
 (function(){
   var pal=$("stkPal");
-  STICKERS.forEach(function(t){
-    var b=document.createElement("button");
-    b.className="stk-btn"; b.dataset.id=t.id; b.setAttribute("aria-label", t.id+" 스티커");
-    b.appendChild(t.img.cloneNode());
-    pal.appendChild(b);
+  buildChips($("stkTabs"), STK_TABS, stkTab, false);
+  buildStickerPal();
+  $("stkTabs").addEventListener("click", function(e){
+    var b=e.target.closest(".chip"); if (!b) return;
+    stkTab=b.dataset.v; pressOnly($("stkTabs"), stkTab); buildStickerPal();
   });
   pal.addEventListener("click", function(e){
     var b=e.target.closest(".stk-btn"); if (!b || K.busy) return;
@@ -1739,9 +1771,10 @@ function selectSticker(it){
   if (K.sel) K.sel.el.classList.add("sel");
 }
 function addSticker(id){
-  var t=stickerById(id), el=t.img.cloneNode();
-  el.className="stk"; el.draggable=false; el.alt="";
-  var it={ id:id, x:0.5, y:0.5, s:t.w>t.h ? STK_SIZE*1.4 : STK_SIZE, r:0, el:el };
+  var t=stickerById(id), el=document.createElement("img"), size=tabById(t.tab).size;
+  el.src=t.url; el.className="stk"; el.draggable=false; el.alt="";
+  if (t.tab === "basic" && t.w > t.h) size *= 1.4;   // 기본 LOVE·042 는 옆으로 길어서 조금 크게
+  var it={ id:id, x:0.5, y:0.5, s:size, r:0, el:el };
   $("stkStage").appendChild(el); K.items.push(it); placeSticker(it); selectSticker(it);
 }
 $("stkStage").addEventListener("pointerdown", function(e){
@@ -1777,7 +1810,7 @@ $("stkDone").addEventListener("click", function(){ finishSticker(); });
 /* 스티커를 인화 사진 크기 그대로 붙여 새 JPG 를 만듭니다. 스티커가 없으면 그대로 돌려줍니다. */
 function applyStickers(blob, list){
   if (!list || !list.length) return Promise.resolve(blob);
-  var imgs=list.map(function(it){ return stickerById(it.id).img; });
+  var imgs=list.map(function(it){ return stickerImg(stickerById(it.id)); });
   return Promise.all([createImageBitmap(blob)].concat(imgs.map(function(im){ return im.decode(); }))).then(function(r){
     var bm=r[0], c=document.createElement("canvas"); c.width=bm.width; c.height=bm.height;
     var ctx=c.getContext("2d"); ctx.drawImage(bm, 0, 0); bm.close();
