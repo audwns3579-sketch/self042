@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 22,
+    version: 23,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -59,6 +59,24 @@ function defaultConfig(){
         ],
         texts: [],
         cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
+      },
+      /* 카메라 8컷 — 사용자가 준 카메라 이미지 7종으로 만든 프레임 그림(frames/camera8.png, 1500×2100, 바탕 #F7F3EE, 검정 카메라는 두 번).
+         칸은 카메라 화면 구멍 자리(구멍보다 사방 6px 크게, 프레임 그림이 위에 덮임). 10장 중 서로 다른 8장을 고릅니다(사용자 요청). */
+      {
+        id: "cam8", name: "카메라 8컷", enabled: true, instax: false, style: "camera", bg: "#F7F3EE",
+        canvas: { w:1500, h:2100 },
+        frame: null, frameSrc: "frames/camera8.png",
+        slots: [
+          {x:67,  y:124,  w:400, h:306, shot:0},
+          {x:112, y:712,  w:358, h:247, shot:1},
+          {x:66,  y:1229, w:334, h:251, shot:2},
+          {x:80,  y:1761, w:328, h:250, shot:3},
+          {x:801, y:169,  w:349, h:263, shot:4},
+          {x:904, y:661,  w:292, h:224, shot:5},
+          {x:876, y:1209, w:344, h:261, shot:6},
+          {x:817, y:1699, w:400, h:306, shot:7}
+        ],
+        texts: []
       }
     ]
   };
@@ -228,7 +246,11 @@ function migrate(cfg){
       if (l.id === d.id && l.cut && !l.cut.on && l.cut.x === 750 && l.cut.color === "#D8D0CA") l.cut = d.cut;
     });
   });
-  if (cfg.version >= 8){ cfg.version = 22; return cfg; }
+  // 셀프042: 카메라 8컷 프레임을 나중에 넣었습니다. 한 번만 붙이니, 그 뒤 관리자에서 지우면 다시 생기지 않습니다.
+  if (cfg.version < 23 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "cam8"; })){
+    defaultConfig().layouts.forEach(function(d){ if (d.id === "cam8") cfg.layouts.push(d); });
+  }
+  if (cfg.version >= 8){ cfg.version = 23; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -296,6 +318,18 @@ var imgCache = {};
 function putImage(blob){
   var key = "img_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
   return kvSet(key, blob).then(function(){ return key; });
+}
+/* 프레임 그림: 관리자가 올린 것(frame, 기기 저장소)이나 앱 폴더에 들어 있는 것(frameSrc, 예: frames/camera8.png) */
+function frameImage(L){
+  if (L.frame) return getImage(L.frame);
+  if (!L.frameSrc) return Promise.resolve(null);
+  if (imgCache[L.frameSrc]) return Promise.resolve(imgCache[L.frameSrc]);
+  return new Promise(function(res){
+    var im = new Image();
+    im.onload = function(){ imgCache[L.frameSrc] = {url:L.frameSrc, img:im}; res(imgCache[L.frameSrc]); };
+    im.onerror = function(){ res(null); };
+    im.src = L.frameSrc;
+  });
 }
 function getImage(key){
   if (!key) return Promise.resolve(null);
@@ -423,7 +457,9 @@ function miniHtml(L){
     ctx.beginPath(); ctx.moveTo(L.cut.x, 40); ctx.lineTo(L.cut.x, L.canvas.h-40); ctx.stroke();
   }
   var url = c.toDataURL("image/jpeg", 0.9); free(c);
-  return '<img class="mini" src="'+url+'" alt="" style="width:'+Math.round(L.canvas.w*k)+'px;height:'+Math.round(L.canvas.h*k)+'px">';
+  // 앱 폴더 프레임 그림(카메라 8컷)은 그림을 그대로 보이고, 뚫린 칸은 회색 바탕이 비칩니다
+  if (L.frameSrc && !L.frame) url = L.frameSrc;
+  return '<img class="mini" src="'+url+'" alt="" style="background:#C9BDB4;width:'+Math.round(L.canvas.w*k)+'px;height:'+Math.round(L.canvas.h*k)+'px">';
 }
 function buildModes(){
   var list = normalLayouts();
@@ -1440,7 +1476,7 @@ function renderPrint(L, shots, lk, flip){
   var ctx=c.getContext("2d");
   ctx.fillStyle="#FFFFFF"; ctx.fillRect(0,0,c.width,c.height);
 
-  return Promise.all([getImage(bgKeyFor(L)), getImage(L.frame),
+  return Promise.all([getImage(bgKeyFor(L)), frameImage(L),
                       (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve()])
     .then(function(r){
       var bg=r[0], fr=r[1];
@@ -1695,19 +1731,15 @@ var STICKERS = [
   { id:"s042", w:100, h:56, svg:'<rect x="4" y="6" width="92" height="44" rx="8" fill="#1B1713" stroke="#C9B48A" stroke-width="3"/><text x="50" y="37" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#C9B48A">042</text>' }
 ];
 /* 사용자가 준 이미지에서 오려 낸 스티커(stickers/폴더/이름.png, 흰 바탕을 지운 투명 PNG). [이름, 가로, 세로]
-   카메라는 화면 자리를 투명하게 뚫어서 뒤의 사진이 보입니다. 원본 이미지가 작아 크게 붙이면 인화에서 흐릴 수 있습니다. */
+   원본 이미지가 작아 크게 붙이면 인화에서 흐릴 수 있습니다. 카메라는 스티커에서 빼고 카메라 8컷 프레임으로 옮겼습니다(사용자 요청). */
 var STICKER_FILES = {
-  camera:[["cam01",325,215],["cam02",376,244],["cam03",325,230],["cam04",364,248],["cam05",330,225],["cam06",371,315],["cam07",350,210]],
-  phrase:[["phr01",145,104],["phr02",84,47],["phr03",49,47],["phr04",50,47],["phr05",49,48],["phr06",192,76],["phr07",96,47],["phr08",145,78],["phr09",65,180],["phr10",210,140],["phr11",127,48],["phr12",101,47],["phr13",107,458],["phr14",50,105],["phr15",88,118],["phr16",145,78],["phr17",169,93],["phr18",134,47],["phr19",247,65],["phr20",170,106],["phr21",72,209],["phr22",107,116],["phr23",215,98],["phr24",85,51],["phr25",334,122],["phr26",125,100],["phr27",95,48],["phr28",201,53],["phr29",148,58],["phr30",225,53]],
   chrome:[["chr01",168,170],["chr02",191,265],["chr03",196,222],["chr04",154,115],["chr05",159,155],["chr06",203,217],["chr07",159,158],["chr08",213,218],["chr09",147,144],["chr10",406,311],["chr11",147,141],["chr12",143,147],["chr13",398,206],["chr14",197,270],["chr15",155,162],["chr16",141,176],["chr17",186,255],["chr18",227,223],["chr19",167,159],["chr20",143,146]],
-  letter:[["let01",60,70],["let02",52,60],["let03",56,73],["let04",58,67],["let05",71,73],["let06",62,69],["let07",67,73],["let08",66,82],["let09",39,43],["let10",16,54],["let11",40,56],["let12",39,56],["let13",39,43],["let14",40,56],["let15",39,43],["let16",27,55],["let17",60,78],["let18",59,89],["let19",62,72],["let20",72,75],["let21",67,90],["let22",73,84],["let23",71,85],["let24",69,92],["let25",53,87],["let26",64,80],["let27",69,84],["let28",67,79],["let29",57,89],["let30",70,106],["let31",54,96],["let32",49,59],["let33",68,83],["let34",73,84],["let35",61,74],["let36",62,71],["let37",71,75],["let38",65,96],["let39",77,103],["let40",67,77],["let41",67,84],["let42",63,82],["let43",52,82],["let44",67,83],["let45",61,84],["let46",78,72],["let47",73,74],["let48",62,71],["let49",63,85],["let50",74,93],["let51",76,96],["let52",53,70],["let53",67,97],["let54",68,74],["let55",65,73],["let56",67,86],["let57",67,91],["let58",68,88],["let59",70,84],["let60",71,86],["let61",39,75],["let62",79,73],["let63",87,74],["let64",58,78],["let65",66,81],["let66",74,76],["let67",68,83],["let68",72,81],["letB01",133,151],["letB02",133,148],["letB03",128,146],["letB04",136,154],["letB05",136,152],["letB06",134,147],["letB07",137,148],["letB08",121,149],["letB09",131,146],["letB10",128,138],["letB11",133,144],["letB12",133,148],["letB13",139,148],["letB14",128,150],["letB15",132,149],["letB16",129,146],["letB17",136,150],["letB18",135,146],["letB19",127,148],["letB20",132,145],["letB21",129,148],["letB22",119,147],["letB23",145,146],["letB24",131,146],["letB25",128,146],["letB26",129,143]],
-  tape:[["tape01",312,115],["tape02",210,91],["tape03",164,103],["tape04",280,98],["tape05",226,108],["tape06",196,81],["tape07",145,57],["tape08",161,59],["tape09",216,93],["tape10",144,54],["tape11",204,68],["tape12",134,45],["tape13",146,93],["tape14",251,67],["tape15",273,76],["tape16",253,74],["tape17",254,87],["tape18",194,65],["tape19",159,63],["tape20",207,82],["tape21",151,60],["tape22",179,72],["tape23",115,45],["tape24",231,65],["tape25",260,69],["tape26",206,67],["tape27",187,62],["tape28",217,71],["tape29",210,85],["tape30",243,69],["tape31",131,52],["tape32",206,55],["tape33",207,63],["tape34",151,73],["tape35",172,65],["tape36",184,72],["tape37",188,73],["tape38",140,58],["tape39",246,87],["tape40",157,54],["tape41",151,53],["tape42",160,65],["tape43",187,70],["tape44",148,70],["tape45",183,75],["tape46",173,62],["tape47",448,142],["tape48",239,80],["tape49",173,61],["tape50",134,51],["tape51",184,95],["tape52",218,125],["tape53",288,52],["tape54",240,46],["tape55",290,59],["tape56",136,67],["tape57",226,79],["tape58",186,58],["tape59",130,61],["tapeB01",150,49],["tapeB02",151,49],["tapeB03",160,48],["tapeB04",136,48],["tapeB05",135,48],["tapeB06",163,48],["tapeB07",134,48],["tapeB08",161,48],["tapeB09",154,48],["tapeB10",136,49],["tapeB11",153,48],["tapeB12",134,48],["tapeB13",111,50],["tapeB14",159,50],["tapeB15",107,48],["tapeB16",152,47],["tapeB17",159,50],["tapeB18",112,50],["tapeB19",150,47],["tapeB20",114,48]]
+  letter:[["letB01",133,151],["letB02",133,148],["letB03",128,146],["letB04",136,154],["letB05",136,152],["letB06",134,147],["letB07",137,148],["letB08",121,149],["letB09",131,146],["letB10",128,138],["letB11",133,144],["letB12",133,148],["letB13",139,148],["letB14",128,150],["letB15",132,149],["letB16",129,146],["letB17",136,150],["letB18",135,146],["letB19",127,148],["letB20",132,145],["letB21",129,148],["letB22",119,147],["letB23",145,146],["letB24",131,146],["letB25",128,146],["letB26",129,143]],
+  tape:[["tape01",312,115],["tape02",210,91],["tape03",164,103],["tape04",280,98],["tape05",226,108],["tape06",196,81],["tape07",145,57],["tape08",161,59],["tape09",216,93],["tape10",144,54],["tape11",204,68],["tape12",134,45],["tape13",146,93],["tape14",251,67],["tape15",273,76],["tape16",253,74],["tape17",254,87],["tape18",194,65],["tape19",159,63],["tape20",207,82],["tape21",151,60],["tape22",179,72],["tape23",115,45],["tape24",231,65],["tape25",260,69],["tape26",206,67],["tape27",187,62],["tape28",217,71],["tape29",210,85],["tape30",243,69],["tape31",131,52],["tape32",206,55],["tape33",207,63],["tape34",151,73],["tape35",172,65],["tape36",184,72],["tape37",188,73],["tape38",140,58],["tape39",246,87],["tape40",157,54],["tape41",151,53],["tape42",160,65],["tape43",187,70],["tape44",148,70],["tape45",183,75],["tape46",173,62],["tape47",448,142],["tape48",239,80],["tape49",173,61],["tape50",134,51],["tape51",184,95],["tape52",218,125],["tape53",288,52],["tape54",240,46],["tape55",290,59],["tape56",136,67],["tape57",226,79],["tape58",186,58],["tape59",130,61]]
 };
 /* 탭: 이름, 처음 붙는 폭(사진 너비에 대한 비율) */
 var STK_TABS = [
   { id:"basic",  name:"기본",   size:0.22 },
-  { id:"camera", name:"카메라", size:0.6 },
-  { id:"phrase", name:"문구",   size:0.3 },
   { id:"chrome", name:"크롬",   size:0.2 },
   { id:"letter", name:"글자",   size:0.1 },
   { id:"tape",   name:"테이프", size:0.35 }
@@ -1951,7 +1983,7 @@ function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
   S.printing = true; syncPrintBtn(); say("인화를 보내는 중입니다…", 0);
   // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
-  var L = enabledLayouts()[cur], bg = !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : "FFFFFF";
+  var L = enabledLayouts()[cur], bg = !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
   fetch(relayUrl()+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
     .then(function(r){ return r.json(); })
     .then(function(j){
@@ -2677,7 +2709,7 @@ function renderEditor(){
   getImage(bgKeyFor(l)).then(function(b){
     var el=$("bgLayer"); if (el) el.style.backgroundImage = b ? 'url('+b.url+')' : "none";
   });
-  getImage(l.frame).then(function(f){
+  frameImage(l).then(function(f){
     var el=$("frLayer"); if (el) el.style.backgroundImage = f ? 'url('+f.url+')' : "none";
   });
 }
