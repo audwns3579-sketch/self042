@@ -1689,7 +1689,8 @@ $("startBtn").addEventListener("click", function(){
   $("stage").style.setProperty("--ar-num", s0.w/s0.h);
   show(shootEl); ticks(0, shootTotal(L)); applyPreviewFilter(); keepAwake();
   // 카메라가 켜지면 바로 릴리즈 촬영을 기다립니다(촬영 시작 버튼 없이, 사용자 요청).
-  readyMode(true);
+  // 켜지는 동안 촬영 시작·카메라 전환 버튼이 잠깐 보이지 않게 숨기고 안내만 띄웁니다(사용자 요청).
+  readyMode(false); $("shootHint").textContent = "카메라를 켜는 중입니다";
   openCamera()
     .then(function(){
       readyMode(false);
