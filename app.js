@@ -454,7 +454,7 @@ function miniHtml(L){
   if (L.style === "film") drawFilmBack(ctx, L);
   else if (L.style === "camera") drawCamBack(ctx, L);
   else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
-  ctx.fillStyle = "#C9BDB4";
+  ctx.fillStyle = getComputedStyle($("setup")).getPropertyValue("--slot").trim() || "#C9BDB4";   // 빈 사진 칸(밝은 화면은 회색)
   L.slots.forEach(function(s){
     if (s.r){ roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.fill(); } else ctx.fillRect(s.x, s.y, s.w, s.h);
   });
