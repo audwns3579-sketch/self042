@@ -264,7 +264,7 @@ var selSlot = -1, selText = -1;
 var S = { shots:[], cancelled:false, blob:null, stream:null, facing:"user", wakeLock:null };
 
 var $ = function(id){ return document.getElementById(id); };
-var setupEl=$("setup"), shootEl=$("shoot"), pickEl=$("pick"), resultEl=$("result"), adminEl=$("admin");
+var setupEl=$("setup"), shootEl=$("shoot"), pickEl=$("pick"), doodleEl=$("doodle"), resultEl=$("result"), adminEl=$("admin");
 
 /* ── 저장소 (IndexedDB: 설정 + 이미지) ── */
 function idb(){
@@ -329,7 +329,7 @@ $("confirmYes").addEventListener("click", function(){
   var cb=confirmCb; confirmCb=null; if (cb) cb();
 });
 
-function show(el){ [setupEl,shootEl,pickEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
+function show(el){ [setupEl,shootEl,pickEl,doodleEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
   if (el===setupEl && typeof showStep==="function"){
     showStep(1); orientFixed = false; syncIdle();
   }
@@ -1186,7 +1186,8 @@ var REL = { dark:12, still:6, holdMs:300, giveUpMs:3000 };
 function waitRelease(n, total){
   var v=$("video"), t=document.createElement("canvas"); t.width=64; t.height=36;
   var tc=t.getContext("2d", { willReadFrequently:true });
-  $("shootHint").textContent = "릴리즈를 눌러 주세요 ("+n+"/"+total+")";
+  $("shootHint").textContent = "릴리즈를 눌러 주세요";
+  $("shootCount").textContent = n+" / "+total+" 장";
   return new Promise(function(resolve){
     var dark=false, darkAt=0, stillFrom=0, prev=null;
     (function tick(){
@@ -1214,15 +1215,15 @@ function waitRelease(n, total){
 /* 다 쓴 캔버스는 바로 비웁니다. iOS Safari는 페이지 전체의 캔버스 메모리가
    한도를 넘으면 오류 없이 잡티 섞인 그림을 돌려줍니다. */
 var lastResultUrl = null;
-/* origs: 찍은 원본(캔버스). 원본은 아이맥 보관 폴더에만 올립니다(손님 QR 에는 프레임만). */
-function setResult(blob, origs, sub){
+/* origs: 찍은 원본(jpgs 로 바꾼 글자 목록), plain: 낙서 없는 프레임(blob). 둘 다 아이맥 보관 폴더에만 올립니다(손님 QR 에는 프레임만). */
+function jpgs(list){ return (list||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }); }
+function setResult(blob, origs, sub, plain){
   S.blob = blob; S.printed = false;
   S.sub = sub || stampName(new Date());   // 손님 폴더 이름. 좌우 반전으로 다시 만들어도 같은 폴더에 넣습니다
   if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
   lastResultUrl = URL.createObjectURL(blob);
   $("resultImg").src = lastResultUrl;
-  // 원본 캔버스는 바로 뒤에 비워지므로 지금 JPG 글자로 바꿔 둡니다
-  showQr(blob, S.sub, (origs||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }));
+  showQr(blob, S.sub, origs, plain);
 }
 
 /* ── 구글 드라이브 QR ──
@@ -1254,7 +1255,7 @@ function postDrive(o){
   // text/plain 으로 보내야 구글 앱스 스크립트가 미리 묻기(CORS) 없이 받습니다
   return fetch(DRIVE_URL, { method:"POST", body: JSON.stringify(o) }).then(function(res){ return res.json(); });
 }
-function showQr(blob, sub, origs){
+function showQr(blob, sub, origs, plain){
   var box=$("qrBox"), img=$("qrImg"), note=$("qrNote");
   if (!DRIVE_URL){ box.hidden=true; return; }
   box.hidden=false; img.innerHTML=""; note.textContent="QR 을 만드는 중입니다…";
@@ -1262,10 +1263,14 @@ function showQr(blob, sub, origs){
     return postDrive({ img:r[1], folder:sub });
   });
   // 원본은 프레임이 올라간 뒤 한 장씩 올립니다(같은 이름 폴더가 둘 생기지 않게). 손님 화면에는 안 보이게 조용히 합니다
-  if (origs && origs.length) up.catch(function(){}).then(function(){
-    return origs.reduce(function(pr, b64, i){
+  // 낙서 없는 프레임은 맨 먼저. orig:"00" 은 Code.gs 를 새로 배포하기 전에도 "원본_00.jpg" 로 남게 하려는 것입니다
+  if (plain || (origs && origs.length)) up.catch(function(){}).then(function(){
+    var first = !plain ? Promise.resolve() : blobBase64(plain)
+      .then(function(b64){ return postDrive({ img:b64, folder:sub, orig:"00", plain:1 }); })
+      .catch(function(e){ console.warn("낙서 없는 프레임을 올리지 못했습니다", e); });
+    return (origs||[]).reduce(function(pr, b64, i){
       return pr.then(function(){ return postDrive({ img:b64, folder:sub, orig:i+1 }); }).catch(function(e){ console.warn("원본 "+(i+1)+" 을 올리지 못했습니다", e); });
-    }, Promise.resolve());
+    }, first);
   });
   up.then(function(j){
     if (S.blob !== blob) return;   // 그사이 다시 찍었으면 옛 QR 은 버립니다
@@ -1311,11 +1316,11 @@ function runSession(){
     });
   }
   return next(0).then(function(){
-    $("doneBtn").hidden=true;
+    stopShootTimer(); $("doneBtn").hidden=true;
     if (S.cancelled || S.shots.length<need) return;
     if (pick){ stopStream(); releaseAwake(); openPick(L, shotCount(L)); return; }
     return renderPrint(L, S.shots).then(function(blob){
-      setResult(blob, S.shots);
+      setResult(blob, jpgs(S.shots));
       keepResult(L, S.shots, null); S.shots=[];
       setPrintPage(L);
       stopStream(); releaseAwake(); show(resultEl);
@@ -1667,12 +1672,114 @@ $("pickDone").addEventListener("click", function(){
   var shots=P.picks.map(function(i){ return S.shots[i]; });
   $("pickDone").disabled=true;
   renderPrint(P.L, shots, P.look).then(function(blob){
-    setResult(blob, S.shots);
+    var origs = jpgs(S.shots);   // 원본 캔버스는 바로 뒤에 비워지므로 지금 JPG 글자로 바꿔 둡니다
     closePick(); keepResult(P.L, shots, P.look);
     freeCanvases(S.shots.filter(function(c){ return shots.indexOf(c) < 0; })); S.shots=[];
-    setPrintPage(P.L); show(resultEl);
+    setPrintPage(P.L);
+    openDoodle(blob, origs);   // 꾸미기 화면을 거쳐 결과 화면으로 갑니다(사용자 요청)
   });
 });
+
+/* ── 꾸미기 — 손님이 인화 사진 위에 손가락으로 낙서합니다(사용자 요청) ──
+   선은 사진 크기에 대한 비율(0~1)로 모아 두었다가, 인화 크기(1500×2100) 사진 위에 그대로 키워 그립니다.
+   좌우 반전을 누르면 사진만 뒤집고 낙서는 그대로 다시 얹습니다(S.res.doodle). */
+var PEN_COLORS = ["#F06A3B", "#F4D03F", "#5CC46A", "#4A7BE0", "#E879B0", "#FFFFFF", "#222222"];
+var PEN_SIZES = [{id:"0.006", name:"가늘게"}, {id:"0.012", name:"보통"}, {id:"0.022", name:"굵게"}];   // 사진 너비에 대한 비율(1500px 에서 9·18·33px)
+var D = { blob:null, origs:null, url:null, strokes:[], cur:null, color:PEN_COLORS[0], size:0.012, stop:null, busy:false };
+(function(){
+  var host=$("penColors");
+  PEN_COLORS.forEach(function(c, i){
+    var b=document.createElement("button");
+    b.className="pen"; b.style.background=c; b.dataset.c=c;
+    b.setAttribute("aria-label", "펜 색 "+(i+1)); b.setAttribute("aria-pressed", String(i===0));
+    host.appendChild(b);
+  });
+  host.addEventListener("click", function(e){
+    var b=e.target.closest(".pen"); if(!b) return;
+    D.color=b.dataset.c;
+    Array.prototype.forEach.call(host.children, function(p){ p.setAttribute("aria-pressed", String(p===b)); });
+  });
+  buildChips($("penSizes"), PEN_SIZES, String(D.size), false);
+  $("penSizes").addEventListener("click", function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    D.size=Number(b.dataset.v); pressOnly($("penSizes"), b.dataset.v);
+  });
+})();
+function openDoodle(blob, origs){
+  D.blob=blob; D.origs=origs; D.strokes=[]; D.cur=null; D.busy=false;
+  if (D.url) URL.revokeObjectURL(D.url);
+  D.url=URL.createObjectURL(blob);
+  var img=$("doodleImg");
+  img.onload=function(){ fitDoodle(); };
+  img.src=D.url;
+  show(doodleEl);
+  if (D.stop) D.stop();
+  D.stop=countdown($("doodleTimer"), function(){ D.stop=null; finishDoodle(true); });   // 시간이 끝나면 그린 그대로 완성
+}
+function fitDoodle(){
+  var img=$("doodleImg"), cv=$("doodleCv"), r=window.devicePixelRatio||1;
+  if (!img.clientWidth) return;
+  cv.width=Math.round(img.clientWidth*r); cv.height=Math.round(img.clientHeight*r);   // 크기를 다시 정하면 캔버스가 비워집니다
+  drawStrokes(cv.getContext("2d"), cv.width, cv.height, D.strokes.concat(D.cur ? [D.cur] : []));
+}
+window.addEventListener("resize", function(){ if (!doodleEl.hidden) fitDoodle(); });
+function drawStrokes(ctx, w, h, list){
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  list.forEach(function(s){
+    ctx.strokeStyle=s.c; ctx.lineWidth=s.w*w;
+    ctx.beginPath();
+    s.p.forEach(function(q, i){ if (i) ctx.lineTo(q[0]*w, q[1]*h); else ctx.moveTo(q[0]*w, q[1]*h); });
+    if (s.p.length===1) ctx.lineTo(s.p[0][0]*w+0.1, s.p[0][1]*h);   // 콕 찍은 점
+    ctx.stroke();
+  });
+}
+function doodlePt(e){
+  var r=$("doodleCv").getBoundingClientRect();
+  return [Math.min(1, Math.max(0, (e.clientX-r.left)/r.width)), Math.min(1, Math.max(0, (e.clientY-r.top)/r.height))];
+}
+$("doodleCv").addEventListener("pointerdown", function(e){
+  if (D.busy) return;
+  e.preventDefault(); this.setPointerCapture(e.pointerId);
+  D.cur={ c:D.color, w:D.size, p:[doodlePt(e)] }; fitDoodle();
+});
+$("doodleCv").addEventListener("pointermove", function(e){
+  if (!D.cur) return;
+  D.cur.p.push(doodlePt(e)); fitDoodle();
+});
+function doodleUp(){ if (D.cur){ D.strokes.push(D.cur); D.cur=null; fitDoodle(); } }
+$("doodleCv").addEventListener("pointerup", doodleUp);
+$("doodleCv").addEventListener("pointercancel", doodleUp);
+$("undoBtn").addEventListener("click", function(){ D.strokes.pop(); fitDoodle(); });
+$("clearBtn").addEventListener("click", function(){ D.strokes=[]; fitDoodle(); });
+$("doodleDone").addEventListener("click", function(){ finishDoodle(true); });
+$("doodleSkip").addEventListener("click", function(){ finishDoodle(false); });
+/* 낙서를 인화 사진 크기 그대로 얹어 새 JPG 를 만듭니다. 낙서가 없으면 그대로 돌려줍니다. */
+function applyDoodle(blob, strokes){
+  if (!strokes || !strokes.length) return Promise.resolve(blob);
+  return createImageBitmap(blob).then(function(bm){
+    var c=document.createElement("canvas"); c.width=bm.width; c.height=bm.height;
+    var ctx=c.getContext("2d"); ctx.drawImage(bm, 0, 0); bm.close();
+    drawStrokes(ctx, c.width, c.height, strokes);
+    return new Promise(function(res){ c.toBlob(function(b){ free(c); res(b); }, "image/jpeg", 0.95); });
+  });
+}
+function finishDoodle(keep){
+  if (D.busy || doodleEl.hidden) return;
+  D.busy=true; doodleUp();
+  if (D.stop){ D.stop(); D.stop=null; }
+  var strokes = keep ? D.strokes.slice() : [], plain=D.blob, origs=D.origs;
+  applyDoodle(plain, strokes).then(function(blob){
+    if (S.res) S.res.doodle = strokes;
+    // 낙서했으면 낙서 없는 프레임도 아이맥 보관 폴더에 같이 남깁니다(사용자 요청)
+    setResult(blob, origs, null, strokes.length ? plain : null);
+    D.origs=null; D.strokes=[];
+    $("doodleImg").removeAttribute("src");
+    if (D.url){ URL.revokeObjectURL(D.url); D.url=null; }
+    show(resultEl);
+  }).catch(function(e){
+    D.busy=false; say("꾸민 사진을 만들지 못했습니다. ("+(e && e.message || e)+")");
+  });
+}
 $("pickQuit").addEventListener("click", function(){
   ask("찍은 사진을 버리고 처음으로 돌아갈까요?", function(){
     closePick(); freeCanvases(S.shots); S.shots=[]; readyMode(true); show(setupEl);
@@ -1694,10 +1801,36 @@ $("startBtn").addEventListener("click", function(){
   openCamera()
     .then(function(){
       readyMode(false);
+      stopShootTimer(); S.stopShootTimer = countdown($("shootTimer"), shootTimeUp);
       return runSession().catch(function(){ readyMode(true); });
     })
-    .catch(function(err){ say(cameraError(err),0); releaseAwake(); show(setupEl); });
+    .catch(function(err){ stopShootTimer(); say(cameraError(err),0); releaseAwake(); show(setupEl); });
 });
+
+/* ── 제한 시간 — 촬영·꾸미기 각각 3분(사용자 요청) ──
+   box 안의 b 에 남은 시간(m:ss), .bar i 에 줄어드는 막대를 그리고, 0 이 되면 onEnd 를 한 번 부릅니다. 멈추는 함수를 돌려줍니다. */
+var TIME_LIMIT = 180;
+function countdown(box, onEnd){
+  var end = Date.now() + TIME_LIMIT*1000, t = null;
+  box.hidden = false;
+  (function tick(){
+    var s = Math.max(0, Math.ceil((end - Date.now())/1000));
+    box.querySelector("b").textContent = Math.floor(s/60)+":"+("0"+s%60).slice(-2);
+    box.querySelector(".bar i").style.width = (s/TIME_LIMIT*100)+"%";
+    if (s <= 0){ t = null; onEnd(); return; }
+    t = setTimeout(tick, 250);
+  })();
+  return function(){ clearTimeout(t); box.hidden = true; };
+}
+function stopShootTimer(){ if (S.stopShootTimer){ S.stopShootTimer(); S.stopShootTimer = null; } }
+/* 촬영 시간이 끝나면: 고를 만큼 찍었으면 찍은 사진으로 고르러 가고, 모자라면 처음 화면으로 돌아갑니다. */
+function shootTimeUp(){
+  S.stopShootTimer = null; $("doneBtn").hidden = true;
+  if (S.shots.length >= needShots(enabledLayouts()[cur])){ S.enough = true; return; }
+  S.cancelled = true; readyMode(true); stopStream(); releaseAwake();
+  freeCanvases(S.shots); S.shots = []; show(setupEl);
+  say("시간이 끝났습니다. 처음부터 다시 찍어 주세요.", 6000);
+}
 
 /* 촬영 화면의 두 가지 상태: 기다리는 중 / 찍는 중 */
 function readyMode(on){
@@ -1705,6 +1838,7 @@ function readyMode(on){
   $("flipBtn").hidden = !on;
   // 찍는 중에도 "릴리즈를 눌러 주세요 (n/10)" 안내를 보여줍니다(waitRelease)
   $("shootHint").hidden = false;
+  $("shootCount").textContent = "";
   if (on) $("shootHint").textContent = "얼굴을 맞추고 촬영 시작을 누르세요";
   $("count").hidden = true;
 }
@@ -1715,7 +1849,7 @@ $("goBtn").addEventListener("click", function(){
   runSession().catch(function(){ readyMode(true); });
 });
 $("cancelBtn").addEventListener("click", function(){
-  S.cancelled=true; $("doneBtn").hidden=true; readyMode(true); stopStream(); releaseAwake(); show(setupEl);
+  stopShootTimer(); S.cancelled=true; $("doneBtn").hidden=true; readyMode(true); stopStream(); releaseAwake(); show(setupEl);
 });
 $("doneBtn").addEventListener("click", function(){ S.enough=true; $("doneBtn").hidden=true; });
 $("flipBtn").addEventListener("click", function(){
@@ -1737,6 +1871,8 @@ $("mirrorBtn").addEventListener("click", function(){
   if (!r || S.printing || S.printed || b.disabled) return;
   b.disabled=true; r.flip=!r.flip;
   renderPrint(r.L, r.shots, r.look, r.flip).then(function(blob){
+    return applyDoodle(blob, r.doodle);   // 낙서는 뒤집지 않고 그대로 얹습니다(사용자 요청)
+  }).then(function(blob){
     if (S.res !== r) return;   // 그사이 다시 찍기를 눌렀습니다
     setResult(blob, null, S.sub);
     b.disabled=false; syncPrintBtn();

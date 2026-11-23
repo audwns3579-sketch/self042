@@ -21,6 +21,11 @@ function doPost(e) {
     // 손님마다 보관 폴더 안에 "251121_143005" 같은 폴더를 하나 만들어 프레임과 원본을 같이 담습니다
     var sub = /^\d{6}_\d{6}$/.test(body.folder || "") ? body.folder : "";
     var keep = sub ? folder(sub, folder(KEEP_FOLDER)) : folder(KEEP_FOLDER);
+    // 낙서하기 전 프레임도 보관 폴더에만 둡니다(사용자 요청)
+    if (body.plain) {
+      keep.createFile(Utilities.newBlob(Utilities.base64Decode(body.img), "image/jpeg", "프레임_낙서없음.jpg"));
+      return reply({ ok: true });
+    }
     // 찍은 원본은 아이맥(보관 폴더)에만 둡니다. QR 링크는 만들지 않습니다
     if (body.orig) {
       var n = ("0" + (parseInt(body.orig, 10) || 0)).slice(-2);
