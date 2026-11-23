@@ -238,21 +238,22 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .btn:disabled{opacity:.4}
 
 /* ── 3. 결과 ──────────────────────────── */
-/* ── 2-2. 꾸미기 ── */
-#doodle{justify-content:center;align-items:center;gap:16px;padding-block:18px;overflow-y:auto}
-#doodle .ask{font-size:clamp(22px,2.6vw,32px)}
-.doodle-body{display:flex;gap:40px;align-items:center;justify-content:center;flex-wrap:wrap}
-.doodle-stage{position:relative;line-height:0}
-#doodleImg{max-height:calc(100vh - 140px);max-width:min(90vw,100%);border-radius:3px;box-shadow:0 0 0 1px var(--line)}
-#doodleCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
-.doodle-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}
-.doodle-lab{margin:6px 0 0;font-size:15px;color:var(--muted)}
-.pen{width:52px;height:52px;border-radius:50%;border:4px solid transparent;padding:0;box-shadow:0 0 0 1px var(--line)}
-.pen[aria-pressed=true]{border-color:var(--fg)}
-#penSizes{justify-content:flex-start}
-#penSizes .chip{padding:12px 22px;font-size:17px}
-.doodle-edit .btn{flex:1}
-#doodleDone{min-height:60px;font-size:19px}
+/* ── 2-2. 스티커 ── */
+#sticker{justify-content:center;align-items:center;gap:16px;padding-block:18px;overflow-y:auto}
+#sticker .ask{font-size:clamp(22px,2.6vw,32px)}
+.stk-body{display:flex;gap:40px;align-items:center;justify-content:center;flex-wrap:wrap}
+.stk-stage{position:relative;line-height:0;overflow:hidden;touch-action:none;border-radius:3px}
+#stkImg{max-height:calc(100vh - 140px);max-width:min(90vw,100%);box-shadow:0 0 0 1px var(--line);pointer-events:none}
+.stk{position:absolute;cursor:grab;user-select:none;-webkit-user-drag:none}
+.stk.sel{outline:3px dashed var(--lamp);outline-offset:6px;border-radius:6px}
+.stk-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}
+.stk-lab{margin:6px 0 0;font-size:15px;color:var(--muted);line-height:1.5}
+.stk-pal{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stk-btn{aspect-ratio:1;border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:10px;display:flex;align-items:center;justify-content:center}
+.stk-btn img{max-width:100%;max-height:100%;pointer-events:none}
+.stk-btn:active{transform:scale(.95)}
+.stk-edit .btn{flex:1;padding:0 8px}
+#stkDone{min-height:60px;font-size:19px}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
@@ -391,7 +392,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 @media print{
   html,body{height:auto;margin:0;background:#fff}
   .screen{position:static;padding:0}
-  #setup,#shoot,#pick,#doodle,#admin,#msg,#confirm,.result-actions,.hint,#result .eyebrow{display:none!important}
+  #setup,#shoot,#pick,#sticker,#admin,#msg,#confirm,.result-actions,.hint,#result .eyebrow{display:none!important}
   #result{display:flex!important;align-items:center;justify-content:center;
     width:100%;height:100vh;margin:0;padding:0;overflow:hidden;page-break-inside:avoid}
   #resultImg{width:auto;height:auto;max-width:100%;max-height:100vh;object-fit:contain;
@@ -484,19 +485,18 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   </div>
 </section>
 
-<!-- 2-2. 꾸미기 — 손님이 인화 사진 위에 손가락으로 낙서합니다(사용자 요청, 3분) -->
-<section class="screen" id="doodle" hidden>
-  <h2 class="ask">사진 위에 마음껏 꾸며 보세요</h2>
-  <div class="doodle-body">
-    <div class="doodle-stage"><img id="doodleImg" draggable="false" alt="꾸밀 인화 사진"><canvas id="doodleCv"></canvas></div>
-    <div class="doodle-side">
-      <div class="timer" id="doodleTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
-      <p class="doodle-lab">펜 색</p>
-      <div class="row" id="penColors" role="group" aria-label="펜 색"></div>
-      <p class="doodle-lab">굵기</p>
-      <div class="chips" id="penSizes" role="group" aria-label="굵기"></div>
-      <div class="row doodle-edit"><button class="btn" id="undoBtn">한 번 지우기</button><button class="btn" id="clearBtn">다 지우기</button></div>
-      <button class="btn primary" id="doodleDone">다음</button>
+<!-- 2-2. 스티커 — 손님이 인화 사진 위에 스티커를 붙입니다(사용자 요청, 3분) -->
+<section class="screen" id="sticker" hidden>
+  <h2 class="ask">스티커로 꾸며 보세요</h2>
+  <div class="stk-body">
+    <div class="stk-stage" id="stkStage"><img id="stkImg" draggable="false" alt="꾸밀 인화 사진"></div>
+    <div class="stk-side">
+      <div class="timer" id="stkTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
+      <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮길 수 있어요.</p>
+      <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
+      <p class="stk-lab">고른 스티커</p>
+      <div class="row stk-edit"><button class="btn" id="stkBig">크게</button><button class="btn" id="stkSmall">작게</button><button class="btn" id="stkRot">돌리기</button><button class="btn" id="stkDel">빼기</button></div>
+      <button class="btn primary" id="stkDone">다음</button>
     </div>
   </div>
 </section>
