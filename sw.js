@@ -1,6 +1,6 @@
 /* 셀프 042 (아이패드 부스) — 오프라인 캐시.
    앱 내용을 고치고 아이패드에 반영되지 않으면 아래 CACHE 번호를 올리세요. */
-const CACHE = "self042-v28";
+const CACHE = "self042-v29";
 const SHELL = ["./", "./index.html", "./app.js", "./camera-check.html", "./manifest.json", "./icon-180.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -24,7 +24,20 @@ self.addEventListener("fetch", (e) => {
   const u = new URL(req.url);
   if (u.origin !== self.location.origin && u.hostname !== "fonts.googleapis.com" && u.hostname !== "fonts.gstatic.com") return;
 
-  // 폰트는 받아온 뒤 캐시에 쌓아 둡니다 (두 번째부터 오프라인 동작)
+  // 앱 화면 파일(페이지·app.js·manifest)은 인터넷 먼저: 새로 올린 버전이 새로고침 한 번에 바로 나옵니다(사용자 요청).
+  // 받으면 캐시도 새것으로 바꿔 두고, 인터넷이 끊겼을 때만 캐시를 씁니다.
+  const shell = u.origin === self.location.origin && (req.mode === "navigate" || /\/(index\.html|app\.js|manifest\.json|camera-check\.html)?$/.test(u.pathname));
+  if (shell){
+    e.respondWith(
+      fetch(req, { cache: "no-store" }).then((res) => {
+        if (res && res.status === 200){ const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+        return res;
+      }).catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // 스티커·프레임 그림·폰트는 받아온 뒤 캐시에 쌓아 둡니다 (두 번째부터 오프라인 동작)
   e.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
