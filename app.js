@@ -61,20 +61,20 @@ function defaultConfig(){
         cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
       },
       /* 카메라 8컷 — 사용자가 준 카메라 이미지 7종으로 만든 프레임 그림(frames/camera8.png, 1500×2100, 바탕 #F7F3EE, 검정 카메라는 두 번).
-         칸은 카메라 화면 구멍 자리(구멍보다 사방 6px 크게, 프레임 그림이 위에 덮임). 10장 중 서로 다른 8장을 고릅니다(사용자 요청). */
+         칸은 카메라 화면 구멍 자리(구멍 둘레 연한 띠를 9px 더 뚫고, 그보다 사방 6px 크게, 프레임 그림이 위에 덮임). 10장 중 서로 다른 8장을 고릅니다(사용자 요청). */
       {
         id: "cam8", name: "카메라 8컷", enabled: true, instax: false, style: "camera", bg: "#F7F3EE",
         canvas: { w:1500, h:2100 },
         frame: null, frameSrc: "frames/camera8.png",
         slots: [
-          {x:67,  y:124,  w:400, h:306, shot:0},
-          {x:112, y:712,  w:358, h:247, shot:1},
-          {x:66,  y:1229, w:334, h:251, shot:2},
-          {x:80,  y:1761, w:328, h:250, shot:3},
-          {x:801, y:169,  w:349, h:263, shot:4},
-          {x:904, y:661,  w:292, h:224, shot:5},
-          {x:876, y:1209, w:344, h:261, shot:6},
-          {x:817, y:1699, w:400, h:306, shot:7}
+          {x:64, y:121, w:406, h:313, shot:0},
+          {x:105, y:703, w:374, h:265, shot:1},
+          {x:64, y:1227, w:341, h:257, shot:2},
+          {x:78, y:1756, w:337, h:257, shot:3},
+          {x:795, y:166, w:362, h:270, shot:4},
+          {x:901, y:652, w:297, h:240, shot:5},
+          {x:873, y:1206, w:350, h:267, shot:6},
+          {x:814, y:1696, w:406, h:313, shot:7}
         ],
         texts: []
       }
@@ -250,6 +250,11 @@ function migrate(cfg){
   if (cfg.version < 23 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "cam8"; })){
     defaultConfig().layouts.forEach(function(d){ if (d.id === "cam8") cfg.layouts.push(d); });
   }
+  // 카메라 8컷 칸은 앱 폴더 프레임 그림(frameSrc)과 짝이라, 관리자가 프레임 그림을 따로 올리지 않았으면 늘 기본값으로 맞춥니다.
+  defaultConfig().layouts.forEach(function(d){
+    if (!d.frameSrc) return;
+    (cfg.layouts || []).forEach(function(l){ if (l.id === d.id && !l.frame){ l.slots = d.slots; l.frameSrc = d.frameSrc; } });
+  });
   if (cfg.version >= 8){ cfg.version = 23; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
