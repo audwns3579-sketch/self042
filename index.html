@@ -166,6 +166,15 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}.lay{position:absolute;inset:0;pointer-events:none}
 .stage::after{content:'';position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 0 0 90px rgba(0,0,0,.45)}
+/* 시작 화면 프레임 색 고르기 */
+#fcBox{margin-top:22px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.fc-title{font-size:clamp(20px,2.4vw,30px)}
+.fc-body{display:flex;gap:28px;align-items:center;justify-content:center;flex-wrap:wrap}
+#fcPrev .mini{display:block;border-radius:3px;box-shadow:0 6px 22px rgba(0,0,0,.22)}
+.fc-sws{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:420px}
+.fc-sw{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;color:var(--fg);font-size:14px;cursor:pointer}
+.fc-sw .dot{width:56px;height:56px;border-radius:50%;border:4px solid transparent;box-shadow:0 0 0 1px var(--line)}
+.fc-sw[aria-pressed=true] .dot{border-color:var(--lamp)}
 /* 남은 시간(촬영·꾸미기 3분) */
 .timer{text-align:center;color:var(--fg)}
 .timer small{display:block;font-size:16px;color:var(--muted)}
@@ -424,6 +433,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <div class="field" data-step="3" hidden>
     <h2 class="ask" id="step3Title">보정을 골라주세요</h2>
     <div class="chips" id="filters" role="group" aria-label="보정"></div>
+    <!-- 프레임 색 — 고른 프레임의 색 5가지(app.js FRAME_COLORS). 첫 번째가 예전부터 쓰던 색입니다(사용자 요청) -->
+    <div id="fcBox">
+      <h2 class="ask fc-title">프레임 색을 골라주세요</h2>
+      <div class="fc-body"><span id="fcPrev"></span><div class="fc-sws" id="fcPick" role="group" aria-label="프레임 색"></div></div>
+    </div>
     <!-- 셀프042 는 손님이 릴리즈를 눌러 찍어서 타이머를 쓰지 않습니다 -->
     <p class="eyebrow" style="margin-top:14px" hidden>셀프 타이머</p>
     <div class="chips" id="timers" role="group" aria-label="셀프 타이머" hidden></div>

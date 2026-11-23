@@ -370,6 +370,7 @@ $("confirmYes").addEventListener("click", function(){
 
 function show(el){ [setupEl,shootEl,pickEl,stickerEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
   if (el===setupEl && typeof showStep==="function"){
+    frameColorId = null;   // 다음 손님은 예전 색부터
     showStep(1); orientFixed = false; syncIdle();
   }
   // 인스탁스는 고르기·결과 화면을 필름 모양으로 보여주고, 아래에 프린터 상태를 띄웁니다
@@ -451,20 +452,23 @@ function miniHtml(L){
   var ctx = c.getContext("2d");
   ctx.scale(k, k);
   if (L.style === "film") drawFilmBack(ctx, L);
-  else { ctx.fillStyle = L.style === "bw" ? BW_STRIP : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
+  else if (L.style === "camera") drawCamBack(ctx, L);
+  else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
   ctx.fillStyle = "#C9BDB4";
   L.slots.forEach(function(s){
     if (s.r){ roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.fill(); } else ctx.fillRect(s.x, s.y, s.w, s.h);
   });
   if (L.style === "film") drawFilmText(ctx, L);
   if (L.cut && L.cut.on){
-    ctx.strokeStyle = L.cut.color; ctx.lineWidth = 4; ctx.setLineDash([22, 22]);
+    ctx.strokeStyle = cutColor(L); ctx.lineWidth = 4; ctx.setLineDash([22, 22]);
     ctx.beginPath(); ctx.moveTo(L.cut.x, 40); ctx.lineTo(L.cut.x, L.canvas.h-40); ctx.stroke();
   }
   var url = c.toDataURL("image/jpeg", 0.9); free(c);
-  // 앱 폴더 프레임 그림(카메라 8컷)은 그림을 그대로 보이고, 뚫린 칸은 회색 바탕이 비칩니다
-  if (L.frameSrc && !L.frame) url = L.frameSrc;
-  return '<img class="mini" src="'+url+'" alt="" style="background:#C9BDB4;width:'+Math.round(L.canvas.w*k)+'px;height:'+Math.round(L.canvas.h*k)+'px">';
+  var size = 'width:'+Math.round(L.canvas.w*k)+'px;height:'+Math.round(L.canvas.h*k)+'px';
+  // 앱 폴더 프레임 그림(카메라 8컷, 바탕이 투명한 카메라 그림)은 바탕·회색 칸 그림 위에 얹어 보입니다
+  if (L.frameSrc && !L.frame)
+    return '<img class="mini" src="'+L.frameSrc+'" alt="" style="background:url('+url+') 0 0/100% 100%;'+size+'">';
+  return '<img class="mini" src="'+url+'" alt="" style="'+size+'">';
 }
 function buildModes(){
   var list = normalLayouts();
@@ -537,6 +541,22 @@ $("bgPick").addEventListener("click", function(e){
   buildBgPick();
   showStep(3);
 });
+/* 시작 화면 3단계의 프레임 색 고르기: 고른 프레임의 색 동그라미와 작은 미리보기 */
+function buildFramePick(){
+  var L = enabledLayouts()[cur], list = L && FRAME_COLORS[L.id];
+  $("fcBox").hidden = !list;
+  if (!list) return;
+  var fc = frameColor(L);
+  $("fcPick").innerHTML = list.map(function(c){
+    var bg = c.dot.indexOf("chk:") === 0 ? "repeating-conic-gradient("+c.dot.slice(4)+" 0 25%,#fff 0 50%) 0 0/16px 16px" : c.dot;
+    return '<button class="fc-sw" data-c="'+c.id+'" aria-pressed="'+(c===fc)+'"><span class="dot" style="background:'+bg+'"></span>'+escapeHtml(c.name)+'</button>';
+  }).join("");
+  $("fcPrev").innerHTML = miniHtml(L);
+}
+$("fcPick").addEventListener("click", function(e){
+  var b = e.target.closest(".fc-sw"); if (!b) return;
+  frameColorId = b.dataset.c; buildFramePick();
+});
 function updateShotNote(){
   var L = enabledLayouts()[cur];
   $("shotNote").innerHTML = !L ? '' : instaxOn()
@@ -585,6 +605,8 @@ $("modes").addEventListener("click", function(e){
   var b=e.target.closest(".mode"); if(!b) return;
   instaxOrient = b.dataset.o || null;
   cur = instaxOn() ? 0 : Number(b.dataset.i);
+  frameColorId = null;   // 프레임을 새로 고르면 그 프레임의 첫 번째(예전) 색부터
+  buildFramePick();
   Array.prototype.forEach.call($("modes").children, function(x){
     x.setAttribute("aria-pressed", String(x === b));
   });
@@ -1390,6 +1412,57 @@ function drawCover(ctx, src, x, y, w, h){
 
 /* ── 프레임 모양 — 포토샵 스크립트(인생네컷세로 5x7 · 흑백 3컷 띠 5x7)의 설정값 그대로입니다 ── */
 var BW_STRIP = "#202020";                       // 흑백 3컷 띠 색 (STRIP_RGB)
+/* ── 프레임 색 — 시작 화면 3단계에서 손님이 고릅니다(사용자 요청). 목록의 첫 번째가 예전부터 쓰던 색이라, 안 고르면 그대로입니다.
+   film: 필름 띠 색(바탕·사진 테·구멍·글씨·이음매), strip: 흑백 띠 색, check/fill: 카메라 8컷 바탕(체커·단색), cut: 절취선, bg: 엡손 바깥 여백. */
+var FRAME_COLORS = {
+  film8: [
+    { id:"black", name:"블랙",  dot:"#1B1713", film:{ color:"rgb(27,23,19)", edge:"rgb(56,48,40)", hole:"rgb(238,228,208)", text:"rgb(222,146,64)", seam:"rgb(10,8,6)", scratch:true }, cut:null, bg:"#1B1713" },
+    { id:"white", name:"화이트", dot:"#FFFFFF", film:{ color:"#FFFFFF", edge:"#E8E8E8", hole:"#E4E4E4", text:"#999999", seam:"#EBEBEB" }, cut:"#BEBEBE", bg:"#FFFFFF" },
+    { id:"cream", name:"크림",  dot:"#F4EAD8", film:{ color:"#F4EAD8", edge:"#E2D3B6", hole:"#FFFDF8", text:"#B07A3A", seam:"#E2D3B6" }, cut:"#B07A3A", bg:"#F4EAD8" },
+    { id:"pink",  name:"핑크",  dot:"#F8CFE0", film:{ color:"#F8CFE0", edge:"#F0B8CF", hole:"#FFF4F8", text:"#C0507A", seam:"#F0B8CF" }, cut:"#C0507A", bg:"#F8CFE0" },
+    { id:"sky",   name:"하늘",  dot:"#CFE3F8", film:{ color:"#CFE3F8", edge:"#B6D2F0", hole:"#F4F9FF", text:"#4A78B0", seam:"#B6D2F0" }, cut:"#4A78B0", bg:"#CFE3F8" }
+  ],
+  bw3: [
+    { id:"black", name:"블랙",  dot:"#202020", strip:"#202020", cut:null,      bg:"#202020" },
+    { id:"white", name:"화이트", dot:"#FFFFFF", strip:"#FFFFFF", cut:"#BEBEBE", bg:"#FFFFFF" },
+    { id:"gray",  name:"그레이", dot:"#8C8C8C", strip:"#8C8C8C", cut:"#D0D0D0", bg:"#8C8C8C" },
+    { id:"pink",  name:"핑크",  dot:"#F8CFE0", strip:"#F8CFE0", cut:"#C0507A", bg:"#F8CFE0" },
+    { id:"sky",   name:"하늘",  dot:"#CFE3F8", strip:"#CFE3F8", cut:"#4A78B0", bg:"#CFE3F8" }
+  ],
+  cam8: [
+    { id:"bluechk", name:"블루 체커", dot:"chk:#BAD8FA", check:"#BAD8FA", spark:"#78AAF0", bg:"#BAD8FA" },
+    { id:"pinkchk", name:"핑크 체커", dot:"chk:#F9C6DC", check:"#F9C6DC", spark:"#F07AAE", bg:"#F9C6DC" },
+    { id:"white",   name:"화이트",   dot:"#FFFFFF", fill:"#FFFFFF", bg:"#FFFFFF" },
+    { id:"ivory",   name:"아이보리", dot:"#F7F3EE", fill:"#F7F3EE", bg:"#F7F3EE" },
+    { id:"black",   name:"블랙",     dot:"#1B1B1B", fill:"#1B1B1B", bg:"#1B1B1B" }
+  ]
+};
+var frameColorId = null;   // 손님이 고른 색. null 이면 첫 번째(예전 색). 프레임을 새로 고르면 비웁니다
+function frameColor(L){
+  var list = L && FRAME_COLORS[L.id]; if (!list) return null;
+  for (var i=0;i<list.length;i++) if (list[i].id === frameColorId) return list[i];
+  return list[0];
+}
+function filmPal(L){ var fc = frameColor(L); return fc && fc.film ? fc.film : { color:FILM.color, edge:FILM.edge, hole:FILM.hole, text:FILM.text, seam:FILM.seam, scratch:true }; }
+function bwColor(L){ var fc = frameColor(L); return fc && fc.strip ? fc.strip : BW_STRIP; }
+/* 절취선 색: 첫 번째(예전) 색이면 관리자 화면에서 정한 값, 다른 색이면 그 색에 맞춘 값 */
+function cutColor(L){ var fc = frameColor(L); return fc && fc.cut ? fc.cut : L.cut.color; }
+/* 카메라 8컷 바탕: 체커(한 칸 75px + 반짝이) 또는 단색. 반짝이 자리는 늘 같게(씨앗 42) */
+function drawCamBack(ctx, L){
+  var fc = frameColor(L) || {}, W=L.canvas.w, H=L.canvas.h, s=75, x, y, i;
+  if (!fc.check){ ctx.fillStyle = fc.fill || "#FFFFFF"; ctx.fillRect(0,0,W,H); return; }
+  ctx.fillStyle="#FFFFFF"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=fc.check;
+  for (y=0; y<H; y+=s) for (x=0; x<W; x+=s) if (((x/s)+(y/s))%2===0) ctx.fillRect(x,y,s,s);
+  var seed=42; function rnd(){ seed=(seed*1103515245+12345)%2147483648; return seed/2147483648; }
+  for (i=0;i<40;i++){
+    var cx=rnd()*W, cy=rnd()*H, r=14+rnd()*32;
+    ctx.fillStyle = rnd()<0.5 ? "#FFFFFF" : fc.spark;
+    ctx.beginPath();
+    for (var k=0;k<8;k++){ var a=k*Math.PI/4, rr=k%2===0 ? r : r*0.22; ctx.lineTo(cx+rr*Math.cos(a), cy+rr*Math.sin(a)); }
+    ctx.closePath(); ctx.fill();
+  }
+}
 var FILM = {
   color:"rgb(27,23,19)", edge:"rgb(56,48,40)", hole:"rgb(238,228,208)", text:"rgb(222,146,64)", seam:"rgb(10,8,6)",
   text1:"STUDIO 042", text2:"SAFETY FILM", font:"bold 21px Helvetica, Arial, sans-serif",   // 5pt = 21px (300dpi)
@@ -1412,20 +1485,20 @@ function filmGeom(L){
   return { thick:thick, cell:cell, band:band, outer:outer, strips:xs.length };
 }
 function drawFilmBack(ctx, L){
-  var g=filmGeom(L), W=L.canvas.w, H=L.canvas.h, s, i;
-  ctx.fillStyle=FILM.color; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle=FILM.seam;                       // 띠와 띠가 맞닿는 이음매
+  var g=filmGeom(L), W=L.canvas.w, H=L.canvas.h, s, i, pal=filmPal(L);
+  ctx.fillStyle=pal.color; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=pal.seam;                        // 띠와 띠가 맞닿는 이음매
   for (s=1; s<g.strips; s++) ctx.fillRect(s*g.thick-1, 0, 2, H);
-  ctx.fillStyle=FILM.edge;                       // 사진 둘레 얇은 테 (사진보다 3px 크게)
+  ctx.fillStyle=pal.edge;                        // 사진 둘레 얇은 테 (사진보다 3px 크게)
   L.slots.forEach(function(c){ ctx.fillRect(c.x-3, c.y-3, c.w+6, c.h+6); });
-  // 띠의 긁힘(띠 방향으로 긴 실선)과 먼지 점 — 투명도 22%, 사진 아래라 사진에는 안 덮입니다
-  ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle="rgb(235,225,205)";
+  // 띠의 긁힘(띠 방향으로 긴 실선)과 먼지 점 — 투명도 22%, 사진 아래라 사진에는 안 덮입니다. 밝은 띠에서는 안 보여서 뺍니다
+  if (pal.scratch){ ctx.save(); ctx.globalAlpha=0.22; ctx.fillStyle="rgb(235,225,205)";
   for (i=0; i<FILM.scratches; i++) ctx.fillRect(Math.random()*W, Math.random()*H, 1, 150+Math.random()*700);
   for (i=0; i<FILM.dust; i++){ var d=2+Math.floor(Math.random()*3); ctx.fillRect(Math.random()*W, Math.random()*H, d, d); }
-  ctx.restore();
+  ctx.restore(); }
   // 구멍: 띠 길이에 고르게, 가운데 맞춤. 종이색으로 칠합니다(포토샵은 구멍을 뚫어 종이 바탕이 보이게 함)
   var n=Math.floor((H-FILM.holeW)/FILM.pitch)+1, h0=Math.round((H-((n-1)*FILM.pitch+FILM.holeW))/2);
-  ctx.fillStyle=FILM.hole;
+  ctx.fillStyle=pal.hole;
   for (s=0; s<g.strips; s++){
     var b1=s*g.thick+g.band-FILM.pad-FILM.holeH, b2=s*g.thick+g.band+g.cell+FILM.pad;
     for (i=0; i<n; i++){
@@ -1438,7 +1511,7 @@ function drawFilmBack(ctx, L){
 /* 칸마다 앞쪽 띠에 "STUDIO 042 · SAFETY FILM · 번호", 뒤쪽 띠에 "▷ 번호A · 번호". 위에서 아래로 읽게 돌립니다. */
 function drawFilmText(ctx, L){
   var g=filmGeom(L), aw=21, ah=7;
-  ctx.save(); ctx.fillStyle=FILM.text; ctx.font=FILM.font; ctx.textBaseline="middle"; ctx.textAlign="left";
+  ctx.save(); ctx.fillStyle=filmPal(L).text; ctx.font=FILM.font; ctx.textBaseline="middle"; ctx.textAlign="left";
   function txt(str, a, bc){ ctx.save(); ctx.translate(bc, a); ctx.rotate(Math.PI/2); ctx.fillText(str, 0, 0); ctx.restore(); }
   L.slots.forEach(function(c, k){
     var s=Math.floor(c.x/g.thick), a=c.y, num=String(k+1);
@@ -1487,7 +1560,8 @@ function renderPrint(L, shots, lk, flip){
       var bg=r[0], fr=r[1];
       if (bg) ctx.drawImage(bg.img, 0,0, c.width, c.height);
       if (L.style === "film") drawFilmBack(ctx, L);
-      if (L.style === "bw"){ ctx.fillStyle = BW_STRIP; ctx.fillRect(0,0,c.width,c.height); }
+      if (L.style === "bw"){ ctx.fillStyle = bwColor(L); ctx.fillRect(0,0,c.width,c.height); }
+      if (L.style === "camera") drawCamBack(ctx, L);
 
       var look = lk || activeFilter();
       L.slots.forEach(function(s){
@@ -1506,7 +1580,7 @@ function renderPrint(L, shots, lk, flip){
       if (L.style === "film") drawFilmText(ctx, L);
 
       if (L.cut && L.cut.on){
-        ctx.strokeStyle=L.cut.color; ctx.lineWidth=2; ctx.setLineDash([11,11]);
+        ctx.strokeStyle=cutColor(L); ctx.lineWidth=2; ctx.setLineDash([11,11]);
         ctx.beginPath(); ctx.moveTo(L.cut.x,40); ctx.lineTo(L.cut.x, c.height-40); ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -1988,7 +2062,8 @@ function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
   S.printing = true; syncPrintBtn(); say("인화를 보내는 중입니다…", 0);
   // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
-  var L = enabledLayouts()[cur], bg = !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
+  var L = enabledLayouts()[cur], fc = L && frameColor(L);
+  var bg = fc ? fc.bg.slice(1) : !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
   fetch(relayUrl()+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
     .then(function(r){ return r.json(); })
     .then(function(j){
