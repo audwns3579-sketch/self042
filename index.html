@@ -297,10 +297,15 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .stk-h{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;pointer-events:auto;touch-action:none;
   background:var(--lamp);color:var(--onaccent,#fff);font-size:22px;line-height:48px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #stkDone{min-height:60px;font-size:19px}
-.stk-mode{justify-content:stretch;gap:8px}
-.stk-mode .chip{flex:1;padding:12px 0;font-size:17px}
-#stkPane,#adjPane{display:flex;flex-direction:column;gap:12px}
-#adjPane[hidden],#stkPane[hidden]{display:none}
+#stkPane{display:flex;flex-direction:column;gap:12px}
+.adj-side{display:flex;flex-direction:column;gap:14px;width:min(320px,90vw)}
+.adj-head{display:flex;align-items:center;justify-content:space-between}
+.adj-head h3{margin:0;font-size:22px;color:var(--fg)}
+.adj-row input[type=range]{-webkit-appearance:none;appearance:none;background:transparent}
+.adj-row input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:#C9CDD4}
+.adj-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.adj-row input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:#C9CDD4}
+.adj-row input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#111;border:2px solid #fff}
 .adj-row{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--fg)}
 .adj-row label{width:64px}
 .adj-row input{flex:1;accent-color:#111;height:28px}
@@ -556,6 +561,12 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 <section class="screen" id="sticker" hidden>
   <h2 class="ask">스티커와 조정으로 꾸며 보세요</h2>
   <div class="stk-body">
+    <!-- 조정(노출·대비·채도·그레인)은 사진 왼쪽에 늘 보이게. "처음 값으로"는 막대 밑에서 잘못 눌려 제목 옆 작은 버튼으로(사용자 요청) -->
+    <div class="adj-side" id="adjPane">
+      <div class="adj-head"><h3>조정</h3><button class="btn sm" id="adjReset">처음 값으로</button></div>
+      <p class="stk-lab">막대를 밀면 사진 느낌이 바로 바뀌어요.</p>
+      <div id="adjSliders"></div>
+    </div>
     <!-- 손잡이 층(stkHandles)은 사진 칸(stkStage) 밖으로 나가도 잘리지 않게 따로 둡니다 -->
     <div class="stk-frame">
       <div class="stk-stage" id="stkStage"><img id="stkImg" draggable="false" alt="꾸밀 인화 사진"></div>
@@ -567,19 +578,10 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     </div>
     <div class="stk-side">
       <div class="timer" id="stkTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
-      <!-- 스티커 / 조정(노출·대비·채도·그레인, 인스타 편집처럼) 탭 (사용자 요청) -->
-      <div class="chips stk-mode" id="stkMode" role="group" aria-label="꾸미기">
-        <button class="chip" data-v="stk" aria-pressed="true">스티커</button><button class="chip" data-v="adj" aria-pressed="false">조정</button>
-      </div>
       <div id="stkPane">
         <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮기고, 모서리 손잡이로 빼기(✕)·돌리기(↻)·크기(⤡)를 바꿔요.</p>
         <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
         <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
-      </div>
-      <div id="adjPane" hidden>
-        <p class="stk-lab">막대를 밀면 사진 느낌이 바로 바뀌어요.</p>
-        <div id="adjSliders"></div>
-        <button class="btn" id="adjReset">처음 값으로</button>
       </div>
       <button class="btn primary" id="stkDone">다음</button>
     </div>

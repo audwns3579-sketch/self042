@@ -1942,11 +1942,6 @@ function applyAdjust(blob, a, L){
     K.adj[k]=Number(e.target.value); $("adjo_"+k).textContent=e.target.value; adjPreview();
   });
   $("adjReset").addEventListener("click", function(){ K.adj=adjZero(); syncAdjSliders(); adjPreview(); });
-  $("stkMode").addEventListener("click", function(e){
-    var b=e.target.closest(".chip"); if (!b) return;
-    pressOnly($("stkMode"), b.dataset.v);
-    $("stkPane").hidden = b.dataset.v !== "stk"; $("adjPane").hidden = b.dataset.v !== "adj";
-  });
 })();
 function syncAdjSliders(){ ADJ.forEach(function(q){ $("adj_"+q.k).value=K.adj[q.k]; $("adjo_"+q.k).textContent=K.adj[q.k]; }); }
 /* 막대를 움직이면 잠깐 기다렸다가(80ms) 인화 크기 그대로 다시 만들어 미리보기에 보입니다 */
@@ -1966,7 +1961,6 @@ function adjPreview(){
 function openSticker(blob, origs){
   K.blob=blob; K.origs=origs; K.busy=false; clearStickers();
   K.adj=adjZero(); syncAdjSliders();
-  pressOnly($("stkMode"), "stk"); $("stkPane").hidden=false; $("adjPane").hidden=true;
   if (K.url) URL.revokeObjectURL(K.url);
   K.url=URL.createObjectURL(blob);
   $("stkImg").src=K.url;
