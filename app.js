@@ -518,7 +518,7 @@ function lookOf(L){ return (L && L.look) ? filterById(L.look) : null; }
 function syncLook(){
   var look = lookOf(enabledLayouts()[cur]);
   $("filters").hidden = !!look;
-  $("step3Title").textContent = look ? "필름 · "+look.name : "보정을 골라주세요";
+  $("step3Title").textContent = look ? "필름 · "+look.name : "색을 골라주세요";
   // 필름이 없는 인화 방식으로 돌아오면, 앞 카메라의 숨긴 필름이 남지 않게 보이는 보정으로 돌립니다
   var id = look ? look.id
     : (shownFilters().some(function(f){ return f.id===CFG.filter; }) ? CFG.filter : shownFilters()[0].id);
@@ -619,6 +619,7 @@ function showStep(n){
   $("backBtn").hidden  = step === 1;
   $("startBtn").hidden = step !== 3;
   $("shotNote").hidden = step !== 3;
+  document.querySelector("#setup .setup-head").hidden = step !== 1;   // SELF PHOTO BOOTH · STUDIO 042 는 첫 화면에만(사용자 요청)
 }
 $("backBtn").addEventListener("click", function(){ showStep(step-1); });
 /* 첫 화면(대기 화면)은 가로·세로 고르기입니다(사용자 요청). 맥에서 실시간으로 받는 중이면 카드를 누르는 순간 그 방향으로
@@ -1277,7 +1278,7 @@ function waitRelease(n, total){
   var v=$("video"), t=document.createElement("canvas"); t.width=64; t.height=36;
   var tc=t.getContext("2d", { willReadFrequently:true });
   $("shootHint").textContent = "릴리즈를 눌러 주세요";
-  $("shootCount").textContent = n+" / "+total+" 장";
+  $("shootCount").textContent = n+" / "+total; $("shootCut").hidden = false;
   return new Promise(function(resolve){
     var dark=false, darkAt=0, stillFrom=0, prev=null;
     (function tick(){
@@ -1393,13 +1394,16 @@ function flash(){
 function runSession(){
   var L = enabledLayouts()[cur];
   var need = needShots(L), total = shootTotal(L), pick = pickMode();
-  S.shots=[]; S.cancelled=false; S.enough=false; ticks(0,total);
+  S.shots=[]; S.cancelled=false; S.enough=false; ticks(0,total); $("shootPv").hidden=true;
   function next(i){
     if (S.cancelled || S.enough || i>=total) return Promise.resolve();
     return waitRelease(i+1, total).then(function(c){
       if (S.cancelled || S.enough) return;
       if (!c){ say("카메라 화면을 읽지 못했습니다."); S.cancelled=true; return; }
       S.shots.push(c); ticks(S.shots.length,total);
+      // 방금 찍은 사진을 오른쪽 아래 PREVIEW 에 칸 모양으로(하루필름처럼, 사용자 요청)
+      var pv=$("shootPvC"), s0=L.slots[0] || {w:1,h:1}; pv.width=360; pv.height=Math.round(360*s0.h/s0.w);
+      drawCover(pv.getContext("2d"), c, 0, 0, pv.width, pv.height); $("shootPv").hidden=false;
       // 칸을 채울 만큼 찍었으면 그만 찍고 고르러 갈 수 있습니다
       if (pick && S.shots.length>=need && S.shots.length<total) $("doneBtn").hidden=false;
       return flash().then(function(){ return wait(700); }).then(function(){ return next(i+1); });
@@ -2055,7 +2059,7 @@ function readyMode(on){
   $("flipBtn").hidden = !on;
   // 찍는 중에도 "릴리즈를 눌러 주세요 (n/10)" 안내를 보여줍니다(waitRelease)
   $("shootHint").hidden = false;
-  $("shootCount").textContent = "";
+  $("shootCount").textContent = ""; $("shootCut").hidden = true;
   if (on) $("shootHint").textContent = "얼굴을 맞추고 촬영 시작을 누르세요";
   $("count").hidden = true;
 }

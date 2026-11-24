@@ -188,9 +188,15 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 @media (min-aspect-ratio:1/1){
   .shoot-l,.shoot-r{position:absolute;top:50%;transform:translateY(-50%);width:24vw}
   .shoot-l{left:2vw} .shoot-r{right:2vw}
-  .shoot-l .hint{font-size:clamp(26px,2.6vw,44px);line-height:1.35;color:var(--fg);max-width:none}
-  .shoot-l .shoot-n{font-size:clamp(20px,1.8vw,30px)}
+  .shoot-l .hint{font-size:clamp(18px,1.6vw,26px);line-height:1.4;color:var(--fg);max-width:none;margin-top:18px}
+  .shoot-l .shoot-n{font-size:clamp(26px,2.4vw,40px);color:var(--muted);margin-top:6px}
+  .shoot-r{top:7vh;transform:none}
+  .shoot-pv{position:absolute;right:2vw;bottom:9vh;width:24vw}
 }
+.shoot-cut{margin:0;text-align:center;font-family:var(--display);font-size:clamp(40px,4vw,72px);letter-spacing:.08em;color:var(--muted);line-height:1}
+.shoot-pv{text-align:center}
+.shoot-pv i{display:inline-block;font-style:normal;font-size:13px;letter-spacing:.14em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 14px;margin-bottom:10px}
+.shoot-pv canvas{display:block;margin:0 auto;width:min(17vw,30vh);height:auto;border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
   transition:opacity .09s ease-out;z-index:3}
 #flash.on{opacity:1;transition:none}
@@ -435,7 +441,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <div class="swatches" id="bgPick" role="group" aria-label="배경"></div>
   </div>
   <div class="field" data-step="3" hidden>
-    <h2 class="ask" id="step3Title">보정을 골라주세요</h2>
+    <h2 class="ask" id="step3Title">색을 골라주세요</h2>
     <div class="chips" id="filters" role="group" aria-label="보정"></div>
     <!-- 프레임 색 — 고른 프레임의 색 5가지(app.js FRAME_COLORS). 첫 번째가 예전부터 쓰던 색입니다(사용자 요청) -->
     <div id="fcBox">
@@ -469,8 +475,10 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <div id="flash"></div>
   </div>
   <!-- 가로 화면에서는 카메라 칸 왼쪽에 안내, 오른쪽에 남은 시간(3분, 사용자 요청) -->
-  <div class="shoot-l"><p class="hint" id="shootHint">얼굴을 맞추고 촬영 시작을 누르세요</p><p class="shoot-n" id="shootCount"></p></div>
+  <!-- 하루필름 부스처럼: 왼쪽 CUT 숫자, 오른쪽 위 남은 시간, 오른쪽 아래 방금 찍은 사진(PREVIEW) (사용자 요청) -->
+  <div class="shoot-l"><p class="shoot-cut" id="shootCut" hidden>CUT</p><p class="shoot-n" id="shootCount"></p><p class="hint" id="shootHint">얼굴을 맞추고 촬영 시작을 누르세요</p></div>
   <div class="shoot-r timer" id="shootTimer" hidden><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
+  <div class="shoot-pv" id="shootPv" hidden><i>PREVIEW</i><canvas id="shootPvC" width="360" height="360"></canvas></div>
   <div class="row" style="justify-content:center">
     <button class="btn primary" id="goBtn">촬영 시작</button>
     <button class="btn primary" id="doneBtn" hidden>다 찍었어요</button>
