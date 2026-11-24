@@ -571,8 +571,8 @@ $("bgPick").addEventListener("click", function(e){
 /* 시작 화면 3단계의 프레임 색 고르기: 고른 프레임의 색 동그라미와 작은 미리보기 */
 function buildFramePick(){
   var L = enabledLayouts()[cur], list = L && FRAME_COLORS[L.id];
-  $("fcBox").hidden = !list;
-  if (!list) return;
+  $("fcBox").hidden = !list || list.length < 2;   // 고를 색이 하나뿐이면 숨김
+  if ($("fcBox").hidden) return;
   var fc = frameColor(L);
   $("fcPick").innerHTML = list.map(function(c){
     var bg = c.dot.indexOf("chk:") === 0 ? "repeating-conic-gradient("+c.dot.slice(4)+" 0 25%,#fff 0 50%) 0 0/16px 16px" : c.dot;
@@ -1439,16 +1439,15 @@ function drawCover(ctx, src, x, y, w, h){
 
 /* ── 프레임 모양 — 포토샵 스크립트(인생네컷세로 5x7 · 흑백 3컷 띠 5x7)의 설정값 그대로입니다 ── */
 var BW_STRIP = "#202020";                       // 흑백 3컷 띠 색 (STRIP_RGB)
-/* ── 프레임 색 — 시작 화면 3단계에서 손님이 고릅니다(사용자 요청, 프레임마다 2가지로 줄임). 목록의 첫 번째가 예전부터 쓰던 색이라, 안 고르면 그대로입니다.
+/* ── 프레임 색 — 시작 화면 3단계에서 손님이 고릅니다(사용자 요청). 인생네컷·흑백 3컷은 화이트를 빼서 블랙 하나뿐이라 고르기를 숨기고,
+   카메라 8컷만 블루·핑크 체커를 고릅니다. 목록의 첫 번째가 예전부터 쓰던 색이라, 안 고르면 그대로입니다.
    film: 필름 띠 색(바탕·사진 테·구멍·글씨·이음매), strip: 흑백 띠 색, check/fill: 카메라 8컷 바탕(체커·단색), cut: 절취선, bg: 엡손 바깥 여백. */
 var FRAME_COLORS = {
   film8: [
-    { id:"black", name:"블랙",  dot:"#1B1713", film:{ color:"rgb(27,23,19)", edge:"rgb(56,48,40)", hole:"rgb(238,228,208)", text:"rgb(222,146,64)", seam:"rgb(10,8,6)", scratch:true }, cut:null, bg:"#1B1713" },
-    { id:"white", name:"화이트", dot:"#FFFFFF", film:{ color:"#FFFFFF", edge:"#E8E8E8", hole:"#E4E4E4", text:"#999999", seam:"#EBEBEB" }, cut:"#BEBEBE", bg:"#FFFFFF" }
+    { id:"black", name:"블랙",  dot:"#1B1713", film:{ color:"rgb(27,23,19)", edge:"rgb(56,48,40)", hole:"rgb(238,228,208)", text:"rgb(222,146,64)", seam:"rgb(10,8,6)", scratch:true }, cut:null, bg:"#1B1713" }
   ],
   bw3: [
-    { id:"black", name:"블랙",  dot:"#202020", strip:"#202020", cut:null,      bg:"#202020" },
-    { id:"white", name:"화이트", dot:"#FFFFFF", strip:"#FFFFFF", cut:"#BEBEBE", bg:"#FFFFFF" }
+    { id:"black", name:"블랙",  dot:"#202020", strip:"#202020", cut:null,      bg:"#202020" }
   ],
   cam8: [
     { id:"bluechk", name:"블루 체커", dot:"chk:#BAD8FA", check:"#BAD8FA", spark:"#78AAF0", bg:"#BAD8FA" },
