@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 26,
+    version: 27,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -42,25 +42,6 @@ function defaultConfig(){
         texts: [],
         cut: { on:true, x:750, color:"#DE9240" }   // 가운데 절취선, 필름 글씨색 (사용자 요청)
       },
-      /* 옛날필름 4컷 — 인생네컷 세로와 같은 필름 띠에서 사진 사이 띠를 없애 위아래로 붙인 판(사용자 요청, 견본 B "세로로 늘림").
-         칸 486 × 506, 칸 사이 2px(얇은 테 선만), 위 끝 33 (33 + 4 × 506 + 3 × 2 = 2063 ≤ 2100). 10장 중 서로 다른 8장을 고릅니다. */
-      {
-        id: "film8t", name: "옛날필름 4컷", enabled: true, instax: false, style: "film", bwPick: true,   // 고르기 화면에서 컬러·흑백
-        canvas: { w:1500, h:2100 },
-        frame: null,
-        slots: [
-          {x:132, y:33,   w:486, h:506, shot:0},
-          {x:132, y:541,  w:486, h:506, shot:1},
-          {x:132, y:1049, w:486, h:506, shot:2},
-          {x:132, y:1557, w:486, h:506, shot:3},
-          {x:882, y:33,   w:486, h:506, shot:4},
-          {x:882, y:541,  w:486, h:506, shot:5},
-          {x:882, y:1049, w:486, h:506, shot:6},
-          {x:882, y:1557, w:486, h:506, shot:7}
-        ],
-        texts: [],
-        cut: { on:true, x:750, color:"#DE9240" }
-      },
       /* 포토샵 "흑백 3컷 띠 5x7.jsx" 와 같은 숫자입니다. 5×7 세로, 검은 띠(#202020) 2줄 × 흑백 사진 3칸.
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
          두 줄에 같은 사진 3장이 들어가서 가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 흑백은 look "bwstrip" 이 입힙니다. */
@@ -78,24 +59,6 @@ function defaultConfig(){
         ],
         texts: [],
         cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
-      },
-      /* 흑백 3컷 붙임 — 서울숲 빈티지 포토부스 릴스처럼 흑백 사진 3장을 띠에 위아래로 붙인 판(사용자 요청, 견본 A).
-         검은 테 40, 사진 670 × 670, 사진 사이 4px 가는 선 (40 + 3 × 670 + 2 × 4 = 2058 ≤ 2100). 필름 입자·어두운 모서리(style "bwv").
-         흑백 3컷 띠처럼 3장을 골라 두 줄에 같은 사진이 들어갑니다. */
-      {
-        id: "bw3s", name: "흑백 3컷 붙임", enabled: true, instax: false, style: "bwv", look: "bwstrip", shots: 6, bg: "#121212",
-        canvas: { w:1500, h:2100 },
-        frame: null,
-        slots: [
-          {x:40,  y:40,   w:670, h:670, shot:0},
-          {x:40,  y:714,  w:670, h:670, shot:1},
-          {x:40,  y:1388, w:670, h:670, shot:2},
-          {x:790, y:40,   w:670, h:670, shot:0},
-          {x:790, y:714,  w:670, h:670, shot:1},
-          {x:790, y:1388, w:670, h:670, shot:2}
-        ],
-        texts: [],
-        cut: { on:true, x:750, color:"#5A5A5A" }
       },
       /* 카메라 8컷 — 사용자가 준 카메라 이미지 7종으로 만든 프레임 그림(frames/camera8.png, 1500×2100, 바탕은 Y2K 블루 체커(사용자 요청), 검정 카메라는 두 번).
          칸은 카메라 화면 구멍 자리(둘레 연한 띠를 6px 더 뚫고 바탕도 4px 더 비움, 칸은 그보다 사방 3px 크게, 프레임 그림이 위에 덮임). 10장 중 서로 다른 8장을 고릅니다(사용자 요청). */
@@ -313,25 +276,13 @@ function migrate(cfg){
     if (!d.frameSrc) return;
     (cfg.layouts || []).forEach(function(l){ if (l.id === d.id && !l.frame){ l.slots = d.slots; l.frameSrc = d.frameSrc; l.bg = d.bg; } });
   });
-  // 셀프042: 옛날필름 4컷을 나중에 넣었습니다. 한 번만 인생네컷 바로 뒤에 붙입니다.
-  if (cfg.version < 24 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "film8t"; })){
-    var nd = defaultConfig().layouts.filter(function(d){ return d.id === "film8t"; })[0];
-    var at = cfg.layouts.map(function(l){ return l.id; }).indexOf("film8");
-    cfg.layouts.splice(at >= 0 ? at+1 : cfg.layouts.length, 0, nd);
-  }
-  // 옛날필름 4컷의 컬러·흑백 버튼(bwPick)을 나중에 넣었습니다. 저장된 설정에 없으면 붙입니다.
-  (cfg.layouts || []).forEach(function(l){ if (l.id === "film8t" && l.bwPick === undefined) l.bwPick = true; });
-  // 셀프042: 흑백 3컷 붙임을 나중에 넣었습니다. 한 번만 흑백 3컷 띠 바로 뒤에 붙입니다.
-  if (cfg.version < 25 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "bw3s"; })){
-    var nb = defaultConfig().layouts.filter(function(d){ return d.id === "bw3s"; })[0];
-    var bi = cfg.layouts.map(function(l){ return l.id; }).indexOf("bw3");
-    cfg.layouts.splice(bi >= 0 ? bi+1 : cfg.layouts.length, 0, nb);
-  }
   // 셀프042: 폴라로이드 9컷을 나중에 넣었습니다. 한 번만 맨 뒤에 붙입니다.
   if (cfg.version < 26 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "pol9"; })){
     defaultConfig().layouts.forEach(function(d){ if (d.id === "pol9") cfg.layouts.push(d); });
   }
-  if (cfg.version >= 8){ cfg.version = 26; return cfg; }
+  // 옛날필름 4컷(film8t)·흑백 3컷 붙임(bw3s)은 필요 없다고 해서 뺐습니다(사용자 요청). 저장된 설정에서도 한 번 지웁니다.
+  if (cfg.version < 27 && cfg.layouts) cfg.layouts = cfg.layouts.filter(function(l){ return l.id !== "film8t" && l.id !== "bw3s"; });
+  if (cfg.version >= 8){ cfg.version = 27; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -529,7 +480,7 @@ function miniHtml(L){
   ctx.scale(k, k);
   if (L.style === "film") drawFilmBack(ctx, L);
   else if (L.style === "camera") drawCamBack(ctx, L);
-  else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : L.style === "bwv" ? L.bg : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
+  else { ctx.fillStyle = L.style === "bw" ? bwColor(L) : "#FFFFFF"; ctx.fillRect(0, 0, L.canvas.w, L.canvas.h); }
   ctx.fillStyle = getComputedStyle($("setup")).getPropertyValue("--slot").trim() || "#C9BDB4";   // 빈 사진 칸(밝은 화면은 회색)
   L.slots.forEach(function(s){
     if (s.r){ roundPath(ctx, s.x, s.y, s.w, s.h, s.r); ctx.fill(); } else ctx.fillRect(s.x, s.y, s.w, s.h);
@@ -906,22 +857,6 @@ function overlayInto(ctx, w, h, f){
     ctx.fillRect(0,0,w,h);
     ctx.restore();
   }
-}
-/* 흑백 3컷 붙임(style "bwv"): 칸마다 어두운 모서리와 필름 입자. 입자 그림(256px)은 한 번 만들어 무늬로 깔아 씁니다 */
-var grainTile = null;
-function drawVintage(ctx, x, y, w, h){
-  var cx=x+w/2, cy=y+h/2, g=ctx.createRadialGradient(cx,cy,Math.min(w,h)*0.35, cx,cy,Math.max(w,h)*0.75);
-  g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,.42)");
-  ctx.save(); ctx.fillStyle=g; ctx.fillRect(x,y,w,h);
-  if (!grainTile){
-    grainTile=document.createElement("canvas"); grainTile.width=grainTile.height=256;
-    var gx=grainTile.getContext("2d"), id=gx.createImageData(256,256), d=id.data;
-    for (var i=0;i<d.length;i+=4){ var v=128+(Math.random()-0.5)*110; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
-    gx.putImageData(id,0,0);
-  }
-  ctx.globalCompositeOperation="overlay"; ctx.globalAlpha=0.35;
-  ctx.fillStyle=ctx.createPattern(grainTile,"repeat"); ctx.fillRect(x,y,w,h);
-  ctx.restore();
 }
 function drawVignette(ctx, x, y, w, h, f){
   if (!f.vignette) return;
@@ -1520,7 +1455,6 @@ var FRAME_COLORS = {
     { id:"pinkchk", name:"핑크 체커", dot:"chk:#F9C6DC", check:"#F9C6DC", spark:"#F07AAE", bg:"#F9C6DC" }
   ]
 };
-FRAME_COLORS.film8t = FRAME_COLORS.film8;   // 옛날필름 4컷도 인생네컷과 같은 색
 var frameColorId = null;   // 손님이 고른 색. null 이면 첫 번째(예전 색). 프레임을 새로 고르면 비웁니다
 function frameColor(L){
   var list = L && FRAME_COLORS[L.id]; if (!list) return null;
@@ -1646,7 +1580,6 @@ function renderPrint(L, shots, lk, flip){
       if (L.style === "film") drawFilmBack(ctx, L);
       if (L.style === "bw"){ ctx.fillStyle = bwColor(L); ctx.fillRect(0,0,c.width,c.height); }
       if (L.style === "camera") drawCamBack(ctx, L);
-      if (L.style === "bwv"){ ctx.fillStyle = L.bg; ctx.fillRect(0,0,c.width,c.height); }
 
       var look = lk || activeFilter();
       L.slots.forEach(function(s){
@@ -1660,7 +1593,6 @@ function renderPrint(L, shots, lk, flip){
         if (flip) ctx.restore();
         // 비네팅은 칸마다 겁니다. 촬영 화면에서 보이던 것과 같은 모양이 됩니다.
         drawVignette(ctx, s.x, s.y, s.w, s.h, look);
-        if (L.style === "bwv") drawVintage(ctx, s.x, s.y, s.w, s.h);
         if (s.r) ctx.restore();
       });
       if (L.style === "film") drawFilmText(ctx, L);
@@ -1701,18 +1633,16 @@ var orientFixed = false;   // 가로·세로를 첫 화면에서 골랐는지(�
 var pickLookId = null;
 function pickLooks(){ return allFilters().filter(function(f){ return f.pick; }).slice(0,3); }
 function lookChips(){
-  // 옛날필름 4컷(bwPick)은 카메라로 찍은 사진도 컬러·흑백을 고릅니다(사용자 요청). 흑백은 흑백 3컷 띠와 같은 보정(bwstrip)
-  var bw = !P.imported && P.L && P.L.bwPick ? filterById("bwstrip") : null;
-  var looks = bw ? [{id:"", name:"컬러"}, {id:bw.id, name:"흑백"}] : pickLooks(), on=(P.imported || !!bw) && looks.length>0;
-  $("pickLooks").hidden = !on; $("pickSep").hidden = !on || $("pickFrames").hidden;
+  var looks=pickLooks(), on=P.imported && looks.length>0;
+  $("pickLooks").hidden = !on; $("pickSep").hidden = !on;
   if (!on){ P.look=null; return; }
   if (!looks.some(function(l){ return l.id===pickLookId; })) pickLookId=looks[0].id;
   buildChips($("pickLooks"), looks, pickLookId, false);
-  P.look = pickLookId ? filterById(pickLookId) : null;   // 컬러("")는 찍은 그대로
+  P.look=filterById(pickLookId);
 }
 $("pickLooks").addEventListener("click", function(e){
   var b=e.target.closest(".chip"); if(!b) return;
-  pickLookId=b.dataset.v; P.look = pickLookId ? filterById(pickLookId) : null;
+  pickLookId=b.dataset.v; P.look=filterById(pickLookId);
   pressOnly($("pickLooks"), pickLookId);
   refreshPick();
 });
