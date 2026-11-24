@@ -1163,6 +1163,7 @@ function drawLook(out, src, f, mirror, slim){
 /* 실시간 미리보기 — 비디오를 작게 줄여 매 프레임 drawLook 으로 그립니다.
    on() 이 거짓이 되면 멈춥니다. guide() 가 참이면 얼굴 줄이기 범위를 점선으로 보여줍니다. */
 var LIVE_LONG = 640;
+var liveFaces = null, frameN = 0;
 function startLive(video, canvas, look, on, guide){
   if (canvas.dataset.live) return;
   canvas.dataset.live = "1";
@@ -1174,6 +1175,7 @@ function startLive(video, canvas, look, on, guide){
       var W=Math.round(vw*sc), H=Math.round(vh*sc);
       if (canvas.width!==W || canvas.height!==H){ canvas.width=W; canvas.height=H; }
       drawLook(canvas, video, look(), previewMirror(), CFG.slim);
+      if (beautyWarp()){ if (!(frameN++ % 2) || !liveFaces) liveFaces = beautyFaces(canvas); beautyInto(canvas, liveFaces); }   // 얼굴 찾기는 두 프레임에 한 번
       if (guide() && CFG.slim.amount>0) drawSlimGuide(canvas);
     }
     // 카메라 새 프레임마다 한 번만 그립니다. 화면 주사율(60·120Hz)대로 그리면 같은 그림을 여러 번 계산합니다.
@@ -1231,7 +1233,7 @@ function openCamera(){
       S.stream=st;
       var v=$("video"); v.srcObject=st;
       v.style.transform = previewMirror() ? "scaleX(-1)" : "none";
-      startLive(v, $("live"), activeFilter,
+      startLive(v, $("live"), function(){ return beautyLook(activeFilter()); },
         function(){ return !!S.stream && !shootEl.hidden; },
         function(){ return !$("goBtn").hidden; });       // 기다리는 동안만 얼굴 자리 표시
       return v.play().catch(function(){});
@@ -1276,7 +1278,8 @@ function grabFull(){
   var out=document.createElement("canvas");
   out.width=Math.round(cw*scale); out.height=Math.round(vh*scale);
   // 전면 카메라는 거울처럼 뒤집어 담습니다
-  drawLook(out, src, activeFilter(), mirrorFor(), CFG.slim);
+  drawLook(out, src, beautyLook(activeFilter()), mirrorFor(), CFG.slim);
+  if (beautyWarp()) beautyInto(out, beautyFaces(out));   // 뷰티(눈·중안부·갸름)
   if (src !== v) free(src);
   return out;
 }
@@ -2102,14 +2105,114 @@ $("startBtn").addEventListener("click", function(){
   // 카메라가 켜지면 바로 릴리즈 촬영을 기다립니다(촬영 시작 버튼 없이, 사용자 요청).
   // 켜지는 동안 촬영 시작·카메라 전환 버튼이 잠깐 보이지 않게 숨기고 안내만 띄웁니다(사용자 요청).
   readyMode(false); $("shootHint").textContent = "카메라를 켜는 중입니다";
+  beautyReset(); beautyMode(false);
   openCamera()
-    .then(function(){
-      readyMode(false);
-      stopShootTimer(); S.stopShootTimer = countdown($("shootTimer"), shootTimeUp);
-      return runSession().catch(function(){ readyMode(true); });
-    })
+    .then(function(){ readyMode(false); beautyMode(true); })   // 카메라가 켜지면 먼저 뷰티를 고르고 "촬영 시작"(사용자 요청)
     .catch(function(err){ stopShootTimer(); say(cameraError(err),0); releaseAwake(); show(setupEl); });
 });
+function startShooting(){
+  beautyMode(false); readyMode(false);
+  stopShootTimer(); S.stopShootTimer = countdown($("shootTimer"), shootTimeUp);
+  runSession().catch(function(){ readyMode(true); });
+}
+
+/* ── 뷰티 — 촬영 전에 카메라를 보면서 직접 조절합니다(사용자 요청). 피부 매끈은 보정의 피부 세기를 바꾸고,
+   눈 크게·중안부 줄이기·얼굴 갸름은 구글 MediaPipe 얼굴 찾기(눈·코·입·귀 6점)로 얼굴마다 살짝 당겨 그립니다.
+   실시간 미리보기와 찍힌 사진에 똑같이 들어갑니다. 얼굴 찾기를 못 받거나 얼굴이 안 보이면 피부만 들어갑니다. */
+var BEAUTY = [ {k:"skin", n:"피부 매끈"}, {k:"eye", n:"눈 크게"}, {k:"mid", n:"중안부 줄이기"}, {k:"slim", n:"얼굴 갸름"} ];
+var B = null;
+function beautyReset(){ var f=activeFilter(); B = { skin:f.smooth||0, eye:0, mid:0, slim:0 }; syncBeautySliders(); }
+function beautyLook(f){ return B ? Object.assign({}, f, { smooth:B.skin }) : f; }
+function beautyWarp(){ return !!B && (B.eye || B.mid || B.slim); }
+function syncBeautySliders(){ BEAUTY.forEach(function(q){ var e=$("bt_"+q.k); if (e){ e.value=B[q.k]; $("bto_"+q.k).textContent=B[q.k]; } }); }
+function beautyMode(on){
+  $("beautyBox").hidden = !on;
+  document.querySelector("#shoot .shoot-l").hidden = on;
+  if (on){ $("shootTimer").hidden = true; beautyDetector(); }
+}
+(function(){
+  $("beautySliders").innerHTML = BEAUTY.map(function(q){
+    return '<div class="adj-row"><label for="bt_'+q.k+'" style="width:110px">'+q.n+'</label><input type="range" id="bt_'+q.k+'" data-k="'+q.k+'" min="0" max="100" step="1" value="0"><output id="bto_'+q.k+'">0</output></div>';
+  }).join("");
+  $("beautySliders").addEventListener("input", function(e){
+    var k=e.target.dataset && e.target.dataset.k; if (!k || !B) return;
+    B[k]=Number(e.target.value); $("bto_"+k).textContent=e.target.value;
+  });
+  $("beautyReset").addEventListener("click", beautyReset);
+  $("beautyGo").addEventListener("click", startShooting);
+})();
+var BFACE_LIB = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+var BFACE_MODEL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+var bDet = null, bDetP = null;
+function beautyDetector(){
+  if (bDetP) return bDetP;
+  $("beautyNote").textContent = "얼굴 찾는 도구를 준비하는 중입니다…";
+  bDetP = import(BFACE_LIB+"/vision_bundle.mjs").then(function(v){
+    return v.FilesetResolver.forVisionTasks(BFACE_LIB+"/wasm").then(function(fs){
+      var opt = function(dl){ return { baseOptions:{ modelAssetPath:BFACE_MODEL, delegate:dl }, runningMode:"IMAGE", minDetectionConfidence:0.5 }; };
+      return v.FaceDetector.createFromOptions(fs, opt("GPU")).catch(function(){ return v.FaceDetector.createFromOptions(fs, opt("CPU")); });
+    });
+  }).then(function(d){ bDet=d; $("beautyNote").textContent=""; return d; })
+    .catch(function(){ bDetP=null; $("beautyNote").textContent="얼굴 찾는 도구를 받지 못해 피부 매끈만 들어갑니다(인터넷 확인)."; });
+  return bDetP;
+}
+/* 얼굴들: [{e1,e2,n,m,a1,a2}] 0~1 비율(눈 둘·코·입·귀 둘). 큰 사진은 640 으로 줄여서 찾습니다 */
+function beautyFaces(cv){
+  if (!bDet || !cv.width) return [];
+  var src=cv, k=Math.min(1, 640/Math.max(cv.width,cv.height));
+  if (k<1){ src=document.createElement("canvas"); src.width=Math.round(cv.width*k); src.height=Math.round(cv.height*k); src.getContext("2d").drawImage(cv,0,0,src.width,src.height); }
+  var out=[];
+  try {
+    bDet.detect(src).detections.forEach(function(d){
+      var p=d.keypoints; if (!p || p.length<6) return;
+      out.push({ e1:p[0], e2:p[1], n:p[2], m:p[3], a1:p[4], a2:p[5] });
+    });
+  } catch(e){}
+  if (src!==cv) free(src);
+  return out;
+}
+/* 얼굴마다 거꾸로 따라가는 방식으로 당겨 그립니다(결과 점 → 원래 사진의 어느 점에서 가져올지). 3선형이 아니라 2선형 보간 */
+function beautyInto(cv, faces){
+  if (!beautyWarp() || !faces || !faces.length) return;
+  var W=cv.width, H=cv.height, ctx=cv.getContext("2d"), img;
+  try { img=ctx.getImageData(0,0,W,H); } catch(e){ return; }
+  var src=new Uint8ClampedArray(img.data), dst=img.data;
+  var ke=B.eye/100*0.32, km=B.mid/100*0.24, ks=B.slim/100*0.16;
+  faces.forEach(function(f){
+    var e1x=f.e1.x*W, e1y=f.e1.y*H, e2x=f.e2.x*W, e2y=f.e2.y*H, mx=f.m.x*W, my=f.m.y*H, ny=f.n.y*H;
+    var d=Math.hypot(e2x-e1x, e2y-e1y); if (d<8) return;
+    var cx=(e1x+e2x)/2, ey=(e1y+e2y)/2, em=Math.max(d*0.6, my-ey), chin=my+em*0.6;
+    var hw=Math.max(d*0.9, Math.abs(f.a2.x-f.a1.x)*W/2), R=d*0.42, R2=R*R;
+    var x0=Math.max(0,Math.floor(cx-hw*1.5)), x1=Math.min(W-1,Math.ceil(cx+hw*1.5));
+    var y0=Math.max(0,Math.floor(ey-d*1.1)), y1=Math.min(H-1,Math.ceil(chin+em*0.9));
+    function ss(a,b,v){ var t=Math.min(1,Math.max(0,(v-a)/(b-a))); return t*t*(3-2*t); }
+    for (var y=y0;y<=y1;y++){
+      // 세로 무게: 중안부(눈→입 1, 턱 아래 0으로), 갸름(코→입 1, 턱 아래 0으로)
+      var wm = ss(ey, my, y) * (1 - ss(chin, chin+em*0.8, y));
+      var wsy = ss(ny, my, y) * (1 - ss(chin, chin+em*0.8, y));
+      for (var x=x0;x<=x1;x++){
+        var sx=x, sy=y, u=Math.abs(x-cx)/(hw*1.4), hx=u<1 ? (1-u*u)*(1-u*u) : 0;
+        // 눈 크게: 눈 둘레 안쪽 점은 가운데에 더 가까운 곳에서 가져와 크게 보이게
+        var dx=sx-e1x, dy=sy-e1y, r2=dx*dx+dy*dy;
+        if (r2<R2){ var t=1-r2/R2, sc=1-ke*t; sx=e1x+dx*sc; sy=e1y+dy*sc; }
+        dx=sx-e2x; dy=sy-e2y; r2=dx*dx+dy*dy;
+        if (r2<R2){ var t2=1-r2/R2, sc2=1-ke*t2; sx=e2x+dx*sc2; sy=e2y+dy*sc2; }
+        // 중안부 줄이기: 눈 아래는 조금 아래쪽에서 가져와 코·입이 위로 올라오게
+        sy += km*em*wm*hx;
+        // 얼굴 갸름: 볼·턱은 바깥쪽에서 가져와 얼굴이 좁아지게
+        sx = cx + (sx-cx)*(1 + ks*wsy*hx);
+        if (sx===x && sy===y) continue;
+        var ix=Math.max(0,Math.min(W-2,sx|0)), iy=Math.max(0,Math.min(H-2,sy|0)), fx=sx-ix, fy=sy-iy;
+        var i00=(iy*W+ix)*4, i10=i00+4, i01=i00+W*4, i11=i01+4, o=(y*W+x)*4;
+        for (var c=0;c<3;c++){
+          var a=src[i00+c]+(src[i10+c]-src[i00+c])*fx, b=src[i01+c]+(src[i11+c]-src[i01+c])*fx;
+          dst[o+c]=a+(b-a)*fy;
+        }
+      }
+    }
+  });
+  ctx.putImageData(img,0,0);
+}
 
 /* ── 제한 시간 — 촬영·꾸미기 각각 3분(사용자 요청) ──
    box 안의 b 에 남은 시간(m:ss), .bar i 에 줄어드는 막대를 그리고, 0 이 되면 onEnd 를 한 번 부릅니다. 멈추는 함수를 돌려줍니다. */
