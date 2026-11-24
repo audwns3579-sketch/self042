@@ -515,13 +515,15 @@ function buildModes(){
 /* 카메라(인화 방식)에 필름이 정해져 있으면 그 보정을 씁니다.
    손님이 보정을 따로 고르지 않도록 3단계의 보정 버튼을 숨깁니다. */
 function lookOf(L){ return (L && L.look) ? filterById(L.look) : null; }
+/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 9컷에만 보입니다(사용자 요청). 흑백 3컷은 정해진 필름(흑백 띠), 카메라 8컷은 첫 번째 보정(원본) */
+var COLOR_PICK = ["film8", "pol9"];
 function syncLook(){
-  var look = lookOf(enabledLayouts()[cur]);
-  $("filters").hidden = !!look;
-  $("step3Title").textContent = look ? "필름 · "+look.name : "색을 골라주세요";
+  var L = enabledLayouts()[cur], look = lookOf(L), pick = !look && !!L && COLOR_PICK.indexOf(L.id) >= 0;
+  $("filters").hidden = !pick; $("step3Title").hidden = !pick;
+  $("step3Title").textContent = "색을 골라주세요";
   // 필름이 없는 인화 방식으로 돌아오면, 앞 카메라의 숨긴 필름이 남지 않게 보이는 보정으로 돌립니다
   var id = look ? look.id
-    : (shownFilters().some(function(f){ return f.id===CFG.filter; }) ? CFG.filter : shownFilters()[0].id);
+    : (pick && shownFilters().some(function(f){ return f.id===CFG.filter; }) ? CFG.filter : shownFilters()[0].id);
   if (CFG.filter!==id){
     CFG.filter = id; pressOnly($("filters"), CFG.filter); saveConfig(); applyPreviewFilter();
   }
