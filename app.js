@@ -2236,7 +2236,7 @@ function beautyMode(on){
 }
 (function(){
   $("beautySliders").innerHTML = BEAUTY.map(function(q){
-    return '<div class="adj-row"><label for="bt_'+q.k+'" style="width:110px">'+q.n+'</label><input type="range" id="bt_'+q.k+'" data-k="'+q.k+'" min="0" max="100" step="1" value="0"><output id="bto_'+q.k+'">0</output></div>';
+    return '<div class="adj-row"><label for="bt_'+q.k+'" style="width:150px">'+q.n+'</label><input type="range" id="bt_'+q.k+'" data-k="'+q.k+'" min="0" max="100" step="1" value="0"><output id="bto_'+q.k+'">0</output></div>';
   }).join("");
   $("beautySliders").addEventListener("input", function(e){
     var k=e.target.dataset && e.target.dataset.k; if (!k || !B) return;

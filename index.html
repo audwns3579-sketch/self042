@@ -282,8 +282,8 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .stk-body{display:flex;gap:40px;align-items:center;justify-content:center;flex-wrap:wrap}
 .stk-stage{position:relative;line-height:0;overflow:hidden;touch-action:none;border-radius:3px}
 #stkImg{max-height:calc(100vh - 140px);max-width:min(90vw,100%);box-shadow:0 0 0 1px var(--line);pointer-events:none}
-/* 가로 인화(폴라로이드 6컷 가로)도 조정·스티커 칸과 한 줄에 들어가게: 양옆 칸 320+360, 사이 40×2, 여백 */
-@media (min-width:1200px){#stkImg{max-width:calc(100vw - 880px)}}
+/* 가로 인화(폴라로이드 6컷 가로)도 조정·스티커 칸과 한 줄에 들어가게: 양옆 칸 400+360, 사이 40×2, 여백 */
+@media (min-width:1200px){#stkImg{max-width:calc(100vw - 960px)}}
 .stk{position:absolute;cursor:grab;user-select:none;-webkit-user-drag:none}
 .stk.sel{outline:3px dashed var(--lamp);outline-offset:6px;border-radius:6px}
 .stk-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}
@@ -305,18 +305,20 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   background:var(--lamp);color:var(--onaccent,#fff);font-size:22px;line-height:48px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #stkDone{min-height:60px;font-size:19px}
 #stkPane{display:flex;flex-direction:column;gap:12px}
-.adj-side{display:flex;flex-direction:column;gap:14px;width:min(320px,90vw)}
+/* 조정·뷰티 막대 — 터치 모니터에서 작아 1.5배로 키움(사용자 요청, 견본 A): 칸 400, 글씨 22, 줄 12, 손잡이 40 */
+.adj-side{display:flex;flex-direction:column;gap:20px;width:min(400px,90vw)}
 .adj-head{display:flex;align-items:center;justify-content:space-between}
-.adj-head h3{margin:0;font-size:22px;color:var(--fg)}
-.adj-row input[type=range]{-webkit-appearance:none;appearance:none;background:transparent}
-.adj-row input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:#C9CDD4}
-.adj-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.adj-row input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:#C9CDD4}
-.adj-row input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#111;border:2px solid #fff}
-.adj-row{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--fg)}
-.adj-row label{width:64px}
-.adj-row input{flex:1;accent-color:#111;height:28px}
-.adj-row output{width:40px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.adj-head h3{margin:0;font-size:28px;color:var(--fg)}
+#adjReset{font-size:17px;padding:0 18px;min-height:46px}
+.adj-row input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:52px}   /* 아래 공용 range 높이(26)보다 앞서게 */
+.adj-row input[type=range]::-webkit-slider-runnable-track{height:12px;border-radius:6px;background:#C9CDD4}
+.adj-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:40px;height:40px;margin-top:-14px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.adj-row input[type=range]::-moz-range-track{height:12px;border-radius:6px;background:#C9CDD4}
+.adj-row input[type=range]::-moz-range-thumb{width:36px;height:36px;border-radius:50%;background:#111;border:3px solid #fff}
+.adj-row{display:flex;align-items:center;gap:16px;font-size:22px;color:var(--fg)}
+.adj-row label{width:80px}
+.adj-row input{flex:1;accent-color:#111;height:52px}
+.adj-row output{width:46px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
