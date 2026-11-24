@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 27,
+    version: 28,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -106,6 +106,8 @@ function defaultConfig(){
 /* 보정 한 가지는 숫자 묶음입니다. 같은 숫자로 미리보기(CSS)와
    인화(캔버스)를 똑같이 그리기 때문에 화면에 보이는 게 그대로 나옵니다.
    smooth = 피부 보정, tint = 색감 덧씌우기, fade = 먹색 띄우기 */
+/* builtin: 앱에 들어 있는 표(값은 따로 받은 파일의 전역 변수, 예: luts/bw05.js 의 BW05_LUT_DATA). 설정에는 이름만 저장해 가볍게 둡니다 */
+var BW05_LUT = { id:"bw05", name:"흑백 05", kind:"cube", size:33, builtin:"BW05_LUT_DATA" };
 function newFilter(over){
   var f = {
     id:"F"+Date.now(), name:"새 보정", enabled:true,
@@ -119,10 +121,11 @@ function newFilter(over){
 function defaultFilters(){
   return [
     newFilter({id:"none",   name:"원본"}),
+    // 흑백 = 포토샵 "흑백 05" 색감 표(luts/bw05.js). 인생네컷·폴라로이드 색 고르기에서 원본 바로 옆(사용자 요청)
+    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, lut:BW05_LUT, lutAmount:100}),
     newFilter({id:"bright", name:"화사하게", brightness:105, contrast:101, saturate:108, smooth:55, detail:72}),
     newFilter({id:"soft",   name:"뽀샤시",   brightness:108, contrast:97,  saturate:104, smooth:85, detail:58, fade:14,
                             tint:{color:"#FFD9C2", mode:"soft-light", amount:18}}),
-    newFilter({id:"mono",   name:"흑백",     saturate:0, contrast:110, smooth:48, detail:74}),
     newFilter({id:"film",   name:"필름",     brightness:102, contrast:105, saturate:92, sepia:20,
                             smooth:40, detail:76, fade:16, vignette:22,
                             tint:{color:"#FF9E5E", mode:"soft-light", amount:22}}),
@@ -282,7 +285,15 @@ function migrate(cfg){
   }
   // 옛날필름 4컷(film8t)·흑백 3컷 붙임(bw3s)은 필요 없다고 해서 뺐습니다(사용자 요청). 저장된 설정에서도 한 번 지웁니다.
   if (cfg.version < 27 && cfg.layouts) cfg.layouts = cfg.layouts.filter(function(l){ return l.id !== "film8t" && l.id !== "bw3s"; });
-  if (cfg.version >= 8){ cfg.version = 27; return cfg; }
+  // 흑백(mono) 보정을 포토샵 "흑백 05" 표로 바꾸고, 보이게 켜서 원본 바로 뒤로 옮깁니다(사용자 요청). 한 번만
+  if (cfg.version < 28 && Array.isArray(cfg.filters)){
+    var mi = cfg.filters.map(function(f){ return f.id; }).indexOf("mono"), mono = mi >= 0 ? cfg.filters.splice(mi,1)[0] : null;
+    var dm = defaultFilters().filter(function(f){ return f.id === "mono"; })[0];
+    if (mono){ mono.saturate = 100; mono.contrast = 100; mono.lut = dm.lut; mono.lutAmount = 100; mono.enabled = true; mono.name = "흑백"; } else mono = dm;
+    var ni = cfg.filters.map(function(f){ return f.id; }).indexOf("none");
+    cfg.filters.splice(ni >= 0 ? ni+1 : 0, 0, mono);
+  }
+  if (cfg.version >= 8){ cfg.version = 28; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -889,7 +900,7 @@ function b64ToU16(b){
   for (var i=0;i<s.length;i++) u8[i]=s.charCodeAt(i);
   return new Uint16Array(u8.buffer);
 }
-function lutData(L){ return lutCache[L.id] || (lutCache[L.id] = b64ToU16(L.data)); }
+function lutData(L){ return lutCache[L.id] || (lutCache[L.id] = b64ToU16(L.data || window[L.builtin])); }
 
 /* n³ 칸 테이블에서 (r,g,b: 0~1) 자리의 색을 3선형 보간으로 읽습니다 */
 function sampleLut(fl, n, r, g, b, out){
@@ -931,7 +942,7 @@ function bakeLut(fn, n){
 
 /* 사진(캔버스)에 테이블을 입힙니다. f.lutAmount 는 원래 색과 섞는 정도(0~100). */
 function lutInto(cv, f){
-  var L=f.lut; if (!L || !L.data) return;
+  var L=f.lut; if (!L || !(L.data || (L.builtin && window[L.builtin]))) return;
   var amt=(f.lutAmount===undefined ? 100 : f.lutAmount)/100; if (amt<=0) return;
   var T=lutData(L), n=L.size, n1=n-1, sc=n1/255, k=255/65535, dy=n*3, dz=n*n*3;
   var ctx=cv.getContext("2d"), img;
