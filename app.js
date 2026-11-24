@@ -1746,9 +1746,24 @@ function zoomBy(t, f){
   t.src.__z=Math.min(Math.max((t.src.__z||1)*f, 1), PICK_ZMAX);
   settle(t.src, t.s); renderPick();
 }
+// 터치 모니터 두 손가락 핀치(사용자 요청). 손가락마다 자리를 두고, 두 개가 되면 끌기를 멈추고 벌린 만큼 키웁니다
+var touches={}, pinch2=null;
+function touchList(){ return Object.keys(touches).map(function(k){ return touches[k]; }); }
+function touchDist(){ var p=touchList(); return Math.max(1, Math.hypot(p[0].x-p[1].x, p[0].y-p[1].y)); }
 $("pickPrev").addEventListener("pointerdown", function(e){
   if (!P.L) return;
-  var t=slotAt(e); if (!t) return;
+  var t=slotAt(e);
+  if (e.pointerType==="touch"){
+    touches[e.pointerId]={ x:e.clientX, y:e.clientY, t:t };
+    var p=touchList();
+    if (p.length===2){
+      drag=null; t=p[0].t || p[1].t;
+      pinch2 = t ? { t:t, d:touchDist(), z:t.src.__z||1 } : null;
+      this.setPointerCapture(e.pointerId); e.preventDefault();
+      return;
+    }
+  }
+  if (!t) return;
   settle(t.src, t.s);
   drag={ src:t.src, s:t.s, k:t.k, x:e.clientX, y:e.clientY, a:t.src.__c };
   this.setPointerCapture(e.pointerId); e.preventDefault();
@@ -1769,6 +1784,11 @@ $("pickPrev").addEventListener("gesturechange", function(e){
 });
 $("pickPrev").addEventListener("gestureend", function(){ pinch=null; });
 $("pickPrev").addEventListener("pointermove", function(e){
+  if (touches[e.pointerId]){ touches[e.pointerId].x=e.clientX; touches[e.pointerId].y=e.clientY; }
+  if (pinch2 && touchList().length===2){
+    zoomBy(pinch2.t, pinch2.z*touchDist()/pinch2.d/(pinch2.t.src.__z||1));
+    return;
+  }
   if (!drag) return;
   var src=drag.src, sw=src.width, sh=src.height, b=coverBox(src, drag.s.w, drag.s.h);
   var px=b.cw/drag.s.w/drag.k;   // 화면 1px 이 사진 몇 px 인지
@@ -1776,7 +1796,10 @@ $("pickPrev").addEventListener("pointermove", function(e){
   src.__c={ x:clamp(drag.a.x-(e.clientX-drag.x)*px/sw, b.cw/2/sw), y:clamp(drag.a.y-(e.clientY-drag.y)*px/sh, b.ch/2/sh) };
   renderPick();
 });
-function dragEnd(){ drag=null; }
+function dragEnd(e){
+  drag=null;
+  if (e && touches[e.pointerId]){ delete touches[e.pointerId]; if (touchList().length<2) pinch2=null; }
+}
 $("pickPrev").addEventListener("pointerup", dragEnd);
 $("pickPrev").addEventListener("pointercancel", dragEnd);
 function closePick(){
