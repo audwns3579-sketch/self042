@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 25,
+    version: 26,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -112,6 +112,26 @@ function defaultConfig(){
           {x:901, y:654, w:299, h:236, shot:5},
           {x:872, y:1205, w:352, h:270, shot:6},
           {x:813, y:1695, w:408, h:316, shot:7}
+        ],
+        texts: []
+      },
+      /* 폴라로이드 9컷 — 사용자가 준 9컷 포스터 예시를 글씨·테이프만 빼고 같게(사용자 요청). 프레임 그림 frames/polaroid9.png(1500×2100):
+         거의 흰 종이(#FBFAF8) 위 3×3 폴라로이드 카드(416×529, 사이 45), 카드마다 왼쪽 두꺼운 여백(73)에 "042.s" 음영 각인, 옅은 그림자.
+         사진 칸 307×486(세로). 10장 중 서로 다른 9장을 고릅니다. */
+      {
+        id: "pol9", name: "폴라로이드 9컷", enabled: true, instax: false, style: "frame", bg: "#FBFAF8",
+        canvas: { w:1500, h:2100 },
+        frame: null, frameSrc: "frames/polaroid9.png",
+        slots: [
+          {x:154, y:230, w:307, h:486, shot:0},
+          {x:615, y:230, w:307, h:486, shot:1},
+          {x:1076, y:230, w:307, h:486, shot:2},
+          {x:154, y:804, w:307, h:486, shot:3},
+          {x:615, y:804, w:307, h:486, shot:4},
+          {x:1076, y:804, w:307, h:486, shot:5},
+          {x:154, y:1378, w:307, h:486, shot:6},
+          {x:615, y:1378, w:307, h:486, shot:7},
+          {x:1076, y:1378, w:307, h:486, shot:8}
         ],
         texts: []
       }
@@ -306,7 +326,11 @@ function migrate(cfg){
     var bi = cfg.layouts.map(function(l){ return l.id; }).indexOf("bw3");
     cfg.layouts.splice(bi >= 0 ? bi+1 : cfg.layouts.length, 0, nb);
   }
-  if (cfg.version >= 8){ cfg.version = 25; return cfg; }
+  // 셀프042: 폴라로이드 9컷을 나중에 넣었습니다. 한 번만 맨 뒤에 붙입니다.
+  if (cfg.version < 26 && cfg.layouts && !cfg.layouts.some(function(l){ return l.id === "pol9"; })){
+    defaultConfig().layouts.forEach(function(d){ if (d.id === "pol9") cfg.layouts.push(d); });
+  }
+  if (cfg.version >= 8){ cfg.version = 26; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){

@@ -113,14 +113,14 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 #setup > .setup-head .eyebrow{font-size:15px}
 .ask{margin:0;font-size:clamp(28px,3.8vw,44px);font-weight:700;letter-spacing:-.01em}
 /* 카드 200px × 5장 + 틈 = 1056px — 아이패드 가로(1133~1366)에서 한 줄에 다 들어갑니다 */
-.modes{display:flex;flex-wrap:wrap;gap:40px;justify-content:center}
+.modes{display:flex;flex-wrap:wrap;gap:24px;justify-content:center}
 .setup-nav{display:flex;gap:12px;width:min(100%,600px)}
 .setup-nav:not(:has(.btn:not([hidden]))){display:none}
 .setup-nav .btn{flex:1;min-height:76px;font-size:24px}
 /* 카드는 같은 크기로 — 그림 위, 이름 아래 */
 /* 카드 330px × 2장 — 아이패드 가로에서 크게 보이게 키웠습니다(사용자 요청) */
 .mode{display:flex;flex-direction:column;gap:18px;align-items:center;justify-content:space-between;
-  width:330px;padding:26px 20px 22px;flex:none;
+  width:clamp(250px,calc((100vw - 184px) / 6),330px);padding:26px 18px 22px;flex:none;   /* 프레임 6개가 1920 화면 한 줄에 들어가게(사용자 요청 폴라로이드 9컷 추가 때) */
   border:3px solid var(--line);border-radius:var(--radius,14px);background:var(--panel);text-align:center;min-width:0;
   box-shadow:0 14px 40px rgba(0,0,0,.18);
   transition:transform .12s ease,border-color .12s ease}
