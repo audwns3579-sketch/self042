@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 29,
+    version: 30,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -44,18 +44,20 @@ function defaultConfig(){
       },
       /* 포토샵 "흑백 3컷 띠 5x7.jsx" 와 같은 숫자입니다. 5×7 세로, 검은 띠(#202020) 2줄 × 흑백 사진 3칸.
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
-         두 줄에 같은 사진 3장이 들어가서 가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 흑백은 look "bwstrip" 이 입힙니다. */
+         예전엔 두 줄에 같은 사진 3장이 들어갔는데, 6칸 모두 다른 사진으로 바꿨습니다(사용자 요청, 8장 찍고 6장 고르기).
+         가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 색은 손님이 원본·흑백(흑백 띠 "bwstrip") 중에 고릅니다(looks). */
       {
-        id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", look: "bwstrip", shots: 6,
+        id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", shots: 8,
+        looks: [ {id:"none", name:"원본"}, {id:"bwstrip", name:"흑백"} ],
         canvas: { w:1500, h:2100 },
         frame: null,
         slots: [
           {x:53,  y:31,   w:644, h:666, shot:0, r:16},
           {x:53,  y:717,  w:644, h:666, shot:1, r:16},
           {x:53,  y:1403, w:644, h:666, shot:2, r:16},
-          {x:803, y:31,   w:644, h:666, shot:0, r:16},
-          {x:803, y:717,  w:644, h:666, shot:1, r:16},
-          {x:803, y:1403, w:644, h:666, shot:2, r:16}
+          {x:803, y:31,   w:644, h:666, shot:3, r:16},
+          {x:803, y:717,  w:644, h:666, shot:4, r:16},
+          {x:803, y:1403, w:644, h:666, shot:5, r:16}
         ],
         texts: [],
         cut: { on:true, x:750, color:"#6A6A6A" }   // 가운데 절취선, 회색 (사용자 요청)
@@ -310,7 +312,12 @@ function migrate(cfg){
     var p6 = defaultConfig().layouts.filter(function(d){ return d.id === "pol6v" || d.id === "pol6h"; });
     if (pi >= 0) cfg.layouts.splice.apply(cfg.layouts, [pi, 1].concat(p6)); else cfg.layouts = cfg.layouts.concat(p6);
   }
-  if (cfg.version >= 8){ cfg.version = 29; return cfg; }
+  // 흑백 3컷: 6칸 모두 다른 사진, 8장 찍기, 원본·흑백 고르기로 바꿨습니다(사용자 요청). 한 번만
+  if (cfg.version < 30 && cfg.layouts){
+    var d3 = defaultConfig().layouts.filter(function(d){ return d.id === "bw3"; })[0];
+    cfg.layouts.forEach(function(l){ if (l.id === "bw3"){ l.slots = d3.slots; l.shots = d3.shots; l.looks = d3.looks; delete l.look; } });
+  }
+  if (cfg.version >= 8){ cfg.version = 30; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -554,15 +561,18 @@ function buildModes(){
 /* 카메라(인화 방식)에 필름이 정해져 있으면 그 보정을 씁니다.
    손님이 보정을 따로 고르지 않도록 3단계의 보정 버튼을 숨깁니다. */
 function lookOf(L){ return (L && L.look) ? filterById(L.look) : null; }
-/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 6컷에만 보입니다(사용자 요청). 흑백 3컷은 정해진 필름(흑백 띠), 카메라 8컷은 첫 번째 보정(원본) */
-var COLOR_PICK = ["film8", "pol6v", "pol6h"];
+/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 6컷·흑백 3컷에만 보입니다(사용자 요청). 카메라 8컷은 첫 번째 보정(원본).
+   L.looks 가 있으면(흑백 3컷: 원본·흑백) 그 버튼만 보여줍니다 */
+var COLOR_PICK = ["film8", "pol6v", "pol6h", "bw3"];
 function syncLook(){
   var L = enabledLayouts()[cur], look = lookOf(L), pick = !look && !!L && COLOR_PICK.indexOf(L.id) >= 0;
   $("filters").hidden = !pick; $("step3Title").hidden = !pick;
   $("step3Title").textContent = "색을 골라주세요";
+  var choices = (L && L.looks) || shownFilters();
+  buildChips($("filters"), choices, CFG.filter, false);
   // 필름이 없는 인화 방식으로 돌아오면, 앞 카메라의 숨긴 필름이 남지 않게 보이는 보정으로 돌립니다
   var id = look ? look.id
-    : (pick && shownFilters().some(function(f){ return f.id===CFG.filter; }) ? CFG.filter : shownFilters()[0].id);
+    : (pick && choices.some(function(f){ return f.id===CFG.filter; }) ? CFG.filter : choices[0].id);
   if (CFG.filter!==id){
     CFG.filter = id; pressOnly($("filters"), CFG.filter); saveConfig(); applyPreviewFilter();
   }
@@ -2302,9 +2312,9 @@ function beautyInto(cv, faces){
   ctx.putImageData(img,0,0);
 }
 
-/* ── 제한 시간 — 촬영·꾸미기 각각 3분(사용자 요청) ──
+/* ── 제한 시간 — 촬영·꾸미기 각각 2분(사용자 요청, 처음엔 3분) ──
    box 안의 b 에 남은 시간(m:ss), .bar i 에 줄어드는 막대를 그리고, 0 이 되면 onEnd 를 한 번 부릅니다. 멈추는 함수를 돌려줍니다. */
-var TIME_LIMIT = 180;
+var TIME_LIMIT = 120;
 function countdown(box, onEnd){
   var end = Date.now() + TIME_LIMIT*1000, t = null;
   box.hidden = false;
