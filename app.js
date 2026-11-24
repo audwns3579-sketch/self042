@@ -1894,8 +1894,76 @@ function buildStickerPal(){
     addSticker(b.dataset.id);
   });
 })();
+/* ── 조정: 노출·대비·채도·그레인(인스타 편집처럼, 사용자 요청) ──
+   사진 칸에만 입히고(프레임 띠·글씨는 그대로), 스티커는 그 위에 붙습니다. 그레인 무늬는 늘 같게(씨앗 7) 만들어 막대를 움직여도 깜빡이지 않습니다. */
+var ADJ = [ {k:"exp", n:"노출", min:-50, max:50}, {k:"con", n:"대비", min:-50, max:50}, {k:"sat", n:"채도", min:-100, max:50}, {k:"grain", n:"그레인", min:0, max:100} ];
+function adjZero(){ return { exp:0, con:0, sat:0, grain:0 }; }
+function adjOn(a){ return !!a && (a.exp || a.con || a.sat || a.grain); }
+var adjGrain = null;
+function applyAdjust(blob, a, L){
+  if (!adjOn(a) || !L) return Promise.resolve(blob);
+  return createImageBitmap(blob).then(function(bm){
+    var W=bm.width, H=bm.height, c=document.createElement("canvas"), t=document.createElement("canvas");
+    c.width=t.width=W; c.height=t.height=H;
+    var x=c.getContext("2d"), y=t.getContext("2d");
+    x.drawImage(bm,0,0);
+    y.filter="brightness("+(1+a.exp/100)+") contrast("+(1+a.con/100)+") saturate("+(1+a.sat/100)+")";
+    y.drawImage(bm,0,0); y.filter="none"; bm.close();
+    if (a.grain){
+      if (!adjGrain){
+        adjGrain=document.createElement("canvas"); adjGrain.width=adjGrain.height=256;
+        var gx=adjGrain.getContext("2d"), id=gx.createImageData(256,256), d=id.data, seed=7;
+        for (var i=0;i<d.length;i+=4){ seed=(seed*1103515245+12345)%2147483648; var v=128+(seed/2147483648-0.5)*150; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+        gx.putImageData(id,0,0);
+      }
+      y.globalCompositeOperation="overlay"; y.globalAlpha=a.grain/100*0.5;
+      y.fillStyle=y.createPattern(adjGrain,"repeat"); y.fillRect(0,0,W,H);
+      y.globalCompositeOperation="source-over"; y.globalAlpha=1;
+    }
+    L.slots.forEach(function(sl){
+      x.save();
+      if (sl.r){ roundPath(x, sl.x, sl.y, sl.w, sl.h, sl.r); x.clip(); }
+      x.drawImage(t, sl.x, sl.y, sl.w, sl.h, sl.x, sl.y, sl.w, sl.h);
+      x.restore();
+    });
+    free(t);
+    return new Promise(function(res){ c.toBlob(function(b){ free(c); res(b); }, "image/jpeg", 0.95); });
+  });
+}
+(function(){
+  $("adjSliders").innerHTML = ADJ.map(function(q){
+    return '<div class="adj-row"><label for="adj_'+q.k+'">'+q.n+'</label><input type="range" id="adj_'+q.k+'" data-k="'+q.k+'" min="'+q.min+'" max="'+q.max+'" step="1" value="0"><output id="adjo_'+q.k+'">0</output></div>';
+  }).join("");
+  $("adjSliders").addEventListener("input", function(e){
+    var k=e.target.dataset && e.target.dataset.k; if (!k || !K.adj) return;
+    K.adj[k]=Number(e.target.value); $("adjo_"+k).textContent=e.target.value; adjPreview();
+  });
+  $("adjReset").addEventListener("click", function(){ K.adj=adjZero(); syncAdjSliders(); adjPreview(); });
+  $("stkMode").addEventListener("click", function(e){
+    var b=e.target.closest(".chip"); if (!b) return;
+    pressOnly($("stkMode"), b.dataset.v);
+    $("stkPane").hidden = b.dataset.v !== "stk"; $("adjPane").hidden = b.dataset.v !== "adj";
+  });
+})();
+function syncAdjSliders(){ ADJ.forEach(function(q){ $("adj_"+q.k).value=K.adj[q.k]; $("adjo_"+q.k).textContent=K.adj[q.k]; }); }
+/* 막대를 움직이면 잠깐 기다렸다가(80ms) 인화 크기 그대로 다시 만들어 미리보기에 보입니다 */
+var adjTimer = null, adjUrl = null;
+function adjPreview(){
+  clearTimeout(adjTimer);
+  adjTimer = setTimeout(function(){
+    var blob=K.blob, a=Object.assign({}, K.adj);
+    applyAdjust(blob, a, S.res && S.res.L).then(function(b){
+      if (K.blob !== blob) return;
+      if (adjUrl) URL.revokeObjectURL(adjUrl);
+      adjUrl = b === blob ? null : URL.createObjectURL(b);
+      $("stkImg").src = adjUrl || K.url;
+    });
+  }, 80);
+}
 function openSticker(blob, origs){
   K.blob=blob; K.origs=origs; K.busy=false; clearStickers();
+  K.adj=adjZero(); syncAdjSliders();
+  pressOnly($("stkMode"), "stk"); $("stkPane").hidden=false; $("adjPane").hidden=true;
   if (K.url) URL.revokeObjectURL(K.url);
   K.url=URL.createObjectURL(blob);
   $("stkImg").src=K.url;
@@ -2002,14 +2070,15 @@ function finishSticker(){
   if (K.busy || stickerEl.hidden) return;
   K.busy=true; stickerUp();
   if (K.stop){ K.stop(); K.stop=null; }
-  var list=K.items.map(function(it){ return { id:it.id, x:it.x, y:it.y, s:it.s, r:it.r }; }), plain=K.blob, origs=K.origs;
-  applyStickers(plain, list).then(function(blob){
-    if (S.res) S.res.stickers = list;
+  var list=K.items.map(function(it){ return { id:it.id, x:it.x, y:it.y, s:it.s, r:it.r }; }), origs=K.origs, adj=Object.assign({}, K.adj), plain;
+  applyAdjust(K.blob, adj, S.res && S.res.L).then(function(b){ plain=b; return applyStickers(b, list); }).then(function(blob){
+    if (S.res){ S.res.stickers = list; S.res.adj = adj; }
     // 스티커를 붙였으면 스티커 없는 프레임도 아이맥 보관 폴더에 같이 남깁니다(사용자 요청)
     setResult(blob, origs, null, list.length ? plain : null);
     K.origs=null; clearStickers();
     $("stkImg").removeAttribute("src");
     if (K.url){ URL.revokeObjectURL(K.url); K.url=null; }
+    if (adjUrl){ URL.revokeObjectURL(adjUrl); adjUrl=null; }
     show(resultEl);
   }).catch(function(e){
     K.busy=false; say("꾸민 사진을 만들지 못했습니다. ("+(e && e.message || e)+")");
@@ -2106,6 +2175,8 @@ $("mirrorBtn").addEventListener("click", function(){
   if (!r || S.printing || S.printed || b.disabled) return;
   b.disabled=true; r.flip=!r.flip;
   renderPrint(r.L, r.shots, r.look, r.flip).then(function(blob){
+    return applyAdjust(blob, r.adj, r.L);    // 조정(노출·대비·채도·그레인)도 그대로
+  }).then(function(blob){
     return applyStickers(blob, r.stickers);   // 스티커는 뒤집지 않고 그대로 붙입니다(사용자 요청)
   }).then(function(blob){
     if (S.res !== r) return;   // 그사이 다시 찍기를 눌렀습니다

@@ -292,6 +292,14 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .stk-h{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;pointer-events:auto;touch-action:none;
   background:var(--lamp);color:var(--onaccent,#fff);font-size:22px;line-height:48px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 #stkDone{min-height:60px;font-size:19px}
+.stk-mode{justify-content:stretch;gap:8px}
+.stk-mode .chip{flex:1;padding:12px 0;font-size:17px}
+#stkPane,#adjPane{display:flex;flex-direction:column;gap:12px}
+#adjPane[hidden],#stkPane[hidden]{display:none}
+.adj-row{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--fg)}
+.adj-row label{width:64px}
+.adj-row input{flex:1;accent-color:#111;height:28px}
+.adj-row output{width:40px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
@@ -533,7 +541,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 
 <!-- 2-2. 스티커 — 손님이 인화 사진 위에 스티커를 붙입니다(사용자 요청, 3분) -->
 <section class="screen" id="sticker" hidden>
-  <h2 class="ask">스티커로 꾸며 보세요</h2>
+  <h2 class="ask">스티커와 조정으로 꾸며 보세요</h2>
   <div class="stk-body">
     <!-- 손잡이 층(stkHandles)은 사진 칸(stkStage) 밖으로 나가도 잘리지 않게 따로 둡니다 -->
     <div class="stk-frame">
@@ -546,9 +554,20 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     </div>
     <div class="stk-side">
       <div class="timer" id="stkTimer"><small>남은 시간</small><b>3:00</b><span class="bar"><i></i></span></div>
-      <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮기고, 모서리 손잡이로 빼기(✕)·돌리기(↻)·크기(⤡)를 바꿔요.</p>
-      <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
-      <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
+      <!-- 스티커 / 조정(노출·대비·채도·그레인, 인스타 편집처럼) 탭 (사용자 요청) -->
+      <div class="chips stk-mode" id="stkMode" role="group" aria-label="꾸미기">
+        <button class="chip" data-v="stk" aria-pressed="true">스티커</button><button class="chip" data-v="adj" aria-pressed="false">조정</button>
+      </div>
+      <div id="stkPane">
+        <p class="stk-lab">스티커를 누르면 사진 가운데에 붙어요. 끌어서 옮기고, 모서리 손잡이로 빼기(✕)·돌리기(↻)·크기(⤡)를 바꿔요.</p>
+        <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
+        <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
+      </div>
+      <div id="adjPane" hidden>
+        <p class="stk-lab">막대를 밀면 사진 느낌이 바로 바뀌어요.</p>
+        <div id="adjSliders"></div>
+        <button class="btn" id="adjReset">처음 값으로</button>
+      </div>
       <button class="btn primary" id="stkDone">다음</button>
     </div>
   </div>
