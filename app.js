@@ -79,19 +79,20 @@ function defaultConfig(){
         texts: []
       },
       /* 폴라로이드 6컷 — 예전 9컷 카드(그림은 휴지통으로 옮김, 카드 하나 그림자 포함 451×565)를 키워 6장으로(사용자 요청, 세로·가로 둘 다).
-         세로 frames/polaroid6v.png(1500×2100) 2×3, 카드 1.12배, 사진 칸 344×544.
-         가로 frames/polaroid6h.png(2100×1500) 3×2, 카드 1.2배, 사진 칸 368×583. 8장 찍고 서로 다른 6장을 고릅니다. */
+         카드 사이가 너무 붙어 보여 카드를 줄이고 사이를 넓혔습니다(사용자 요청, 사이 = 카드 폭의 약 17%).
+         세로 frames/polaroid6v.png(1500×2100) 2×3, 카드 1.05배, 사이 80, 사진 칸 322×510.
+         가로 frames/polaroid6h.png(2100×1500) 3×2, 카드 1.1배, 사이 85, 사진 칸 338×535. 8장 찍고 서로 다른 6장을 고릅니다. */
       {
         id: "pol6v", name: "폴라로이드 6컷 세로", enabled: true, instax: false, style: "frame", bg: "#FFFFFF", shots: 8,
         canvas: { w:1500, h:2100 },
         frame: null, frameSrc: "frames/polaroid6v.png",
         slots: [
-          {x:329, y:126, w:344, h:544, shot:0},
-          {x:845, y:126, w:344, h:544, shot:1},
-          {x:329, y:770, w:344, h:544, shot:2},
-          {x:845, y:770, w:344, h:544, shot:3},
-          {x:329, y:1414, w:344, h:544, shot:4},
-          {x:845, y:1414, w:344, h:544, shot:5}
+          {x:320, y:115, w:322, h:510, shot:0},
+          {x:874, y:115, w:322, h:510, shot:1},
+          {x:320, y:788, w:322, h:510, shot:2},
+          {x:874, y:788, w:322, h:510, shot:3},
+          {x:320, y:1461, w:322, h:510, shot:4},
+          {x:874, y:1461, w:322, h:510, shot:5}
         ],
         texts: []
       },
@@ -100,12 +101,12 @@ function defaultConfig(){
         canvas: { w:2100, h:1500 },
         frame: null, frameSrc: "frames/polaroid6h.png",
         slots: [
-          {x:322, y:106, w:368, h:583, shot:0},
-          {x:875, y:106, w:368, h:583, shot:1},
-          {x:1428, y:106, w:368, h:583, shot:2},
-          {x:322, y:796, w:368, h:583, shot:3},
-          {x:875, y:796, w:368, h:583, shot:4},
-          {x:1428, y:796, w:368, h:583, shot:5}
+          {x:309, y:121, w:338, h:535, shot:0},
+          {x:890, y:121, w:338, h:535, shot:1},
+          {x:1471, y:121, w:338, h:535, shot:2},
+          {x:309, y:828, w:338, h:535, shot:3},
+          {x:890, y:828, w:338, h:535, shot:4},
+          {x:1471, y:828, w:338, h:535, shot:5}
         ],
         texts: []
       }
@@ -524,14 +525,25 @@ function miniHtml(L){
     return '<img class="mini" src="'+L.frameSrc+'" alt="" style="background:url('+url+') 0 0/100% 100%;'+size+'">';
   return '<img class="mini" src="'+url+'" alt="" style="'+size+'">';
 }
+/* 폴라로이드 6컷은 첫 화면에 카드 하나만 두고, 누르면 세로·가로를 고릅니다(사용자 요청). 둘 다 켜져 있을 때만 */
+var ORIENT_GROUP = ["pol6v", "pol6h"], ORIENT_NAME = "폴라로이드 6컷";
+function orientList(L){
+  if (!L || ORIENT_GROUP.indexOf(L.id) < 0) return [];
+  var a = enabledLayouts().filter(function(l){ return ORIENT_GROUP.indexOf(l.id) >= 0; });
+  return a.length > 1 ? a : [];
+}
 function buildModes(){
   var list = normalLayouts();
   if (!list.length){ $("modes").innerHTML = '<p class="note">보이도록 켜둔 인화 방식이 없습니다. 관리자 화면에서 켜주세요.</p>'; return; }
   instaxOrient = null;
   if (cur >= list.length) cur = 0;
+  var curL = list[cur];
   $("modes").innerHTML = list.map(function(L,i){
-    return '<button class="mode" data-i="'+i+'" aria-pressed="'+(i===cur)+'">'+miniHtml(L)+
-      '<span style="min-width:0"><span class="mode-name">'+escapeHtml(L.name)+'</span><br>'+
+    var grp = orientList(L);
+    if (grp.length && grp[0] !== L) return "";   // 같은 묶음의 두 번째(가로)는 카드를 따로 두지 않습니다
+    var on = grp.length ? grp.indexOf(curL) >= 0 : i===cur;
+    return '<button class="mode" data-i="'+i+'" aria-pressed="'+on+'">'+miniHtml(L)+
+      '<span style="min-width:0"><span class="mode-name">'+escapeHtml(grp.length ? ORIENT_NAME : L.name)+'</span><br>'+
       '<span class="mode-sub">'+shootTotal(L)+'장 찍고 '+shotCount(L)+'장 고르기</span></span></button>';
   }).join("");
   syncLook();
@@ -590,6 +602,22 @@ function buildBgPick(){
   });
 }
 
+/* 방향 고르기(폴라로이드 6컷 세로·가로) */
+function buildOrientPick(){
+  var all = enabledLayouts(), L = all[cur];
+  $("orientPick").innerHTML = orientList(L).map(function(l){
+    var i = all.indexOf(l);
+    return '<button class="mode" data-i="'+i+'" aria-pressed="'+(i===cur)+'">'+miniHtml(l)+
+      '<span style="min-width:0"><span class="mode-name">'+(isLandscape(l) ? "가로" : "세로")+'</span></span></button>';
+  }).join("");
+}
+$("orientPick").addEventListener("click", function(e){
+  var b = e.target.closest(".mode"); if (!b) return;
+  cur = Number(b.dataset.i);
+  frameColorId = null;
+  buildOrientPick(); buildFramePick(); buildBgPick(); syncLook(); updateShotNote();
+  showStep(2);
+});
 $("bgPick").addEventListener("click", function(e){
   var b = e.target.closest(".sw"); if (!b) return;
   CFG.bgId = b.dataset.b || null;
@@ -637,10 +665,18 @@ function pressOnly(host, value){
    1·2단계는 누르면 바로 넘어가서 "다음" 버튼이 없습니다.
    올려둔 배경이 없으면 2단계(없음 하나뿐)를 건너뜁니다.
    인스탁스는 늘 많이 찍고 고르니 촬영 방식 버튼을 숨깁니다. */
-var step = 1;
+/* 1.5 = 방향 고르기(폴라로이드 6컷만). 고를 것이 없는 단계는 가던 쪽으로 건너뜁니다 */
+var step = 1, STEPS = [1, 1.5, 2, 3];
+function stepOK(n){
+  if (n === 1.5) return orientList(enabledLayouts()[cur]).length > 0;
+  if (n === 2) return allBackgrounds().length > 0;
+  return true;
+}
 function showStep(n){
-  if (n === 2 && !allBackgrounds().length) n = step < 2 ? 3 : 1;
-  step = Math.min(3, Math.max(1, n));
+  var i = STEPS.indexOf(n), dir = n >= step ? 1 : -1;
+  if (i < 0) i = n < 1 ? 0 : STEPS.length-1;
+  while (i > 0 && i < STEPS.length-1 && !stepOK(STEPS[i])) i += dir;
+  step = STEPS[i];
   Array.prototype.forEach.call(document.querySelectorAll('#setup [data-step]'), function(el){
     el.hidden = Number(el.dataset.step) !== step;
   });
@@ -650,7 +686,7 @@ function showStep(n){
   $("shotNote").hidden = step !== 3;
   document.querySelector("#setup .setup-head").hidden = step !== 1;   // SELF PHOTO BOOTH · STUDIO 042 는 첫 화면에만(사용자 요청)
 }
-$("backBtn").addEventListener("click", function(){ showStep(step-1); });
+$("backBtn").addEventListener("click", function(){ showStep(STEPS[STEPS.indexOf(step)-1]); });
 /* 첫 화면(대기 화면)은 가로·세로 고르기입니다(사용자 요청). 맥에서 실시간으로 받는 중이면 카드를 누르는 순간 그 방향으로
    바로 사진 고르기 화면으로 가고(가로·세로 버튼은 고르기 화면에 두지 않습니다), 아니면 예전처럼 배경·보정·카메라 순서로 갑니다.
    관리자 화면은 이 화면 맨 위 이름 글씨를 길게 눌러 엽니다. */
@@ -667,10 +703,11 @@ $("modes").addEventListener("click", function(e){
   Array.prototype.forEach.call($("modes").children, function(x){
     x.setAttribute("aria-pressed", String(x === b));
   });
+  buildOrientPick();
   buildBgPick();
   syncLook();
   updateShotNote();
-  showStep(2);
+  showStep(1.5);
 });
 $("filters").addEventListener("click", function(e){
   var b=e.target.closest(".chip"); if(!b) return;

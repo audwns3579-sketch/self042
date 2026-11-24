@@ -479,6 +479,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <h2 class="ask" id="step1Title">프레임 골라주세요.</h2>
     <div class="modes" id="modes" role="group" aria-label="인화 방식"></div>
   </div>
+  <!-- 폴라로이드 6컷만: 첫 화면 카드는 하나, 들어가서 세로·가로를 고릅니다(사용자 요청) -->
+  <div class="field" data-step="1.5" hidden>
+    <h2 class="ask">방향을 골라주세요</h2>
+    <div class="modes" id="orientPick" role="group" aria-label="방향"></div>
+  </div>
   <div class="field" data-step="2" hidden>
     <h2 class="ask" id="step2Title">배경을 골라주세요</h2>
     <div class="swatches" id="bgPick" role="group" aria-label="배경"></div>
