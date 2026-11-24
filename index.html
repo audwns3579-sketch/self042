@@ -282,6 +282,8 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .stk-body{display:flex;gap:40px;align-items:center;justify-content:center;flex-wrap:wrap}
 .stk-stage{position:relative;line-height:0;overflow:hidden;touch-action:none;border-radius:3px}
 #stkImg{max-height:calc(100vh - 140px);max-width:min(90vw,100%);box-shadow:0 0 0 1px var(--line);pointer-events:none}
+/* 가로 인화(폴라로이드 6컷 가로)도 조정·스티커 칸과 한 줄에 들어가게: 양옆 칸 320+360, 사이 40×2, 여백 */
+@media (min-width:1200px){#stkImg{max-width:calc(100vw - 880px)}}
 .stk{position:absolute;cursor:grab;user-select:none;-webkit-user-drag:none}
 .stk.sel{outline:3px dashed var(--lamp);outline-offset:6px;border-radius:6px}
 .stk-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}

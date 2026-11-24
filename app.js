@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 28,
+    version: 29,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -78,24 +78,34 @@ function defaultConfig(){
         ],
         texts: []
       },
-      /* 폴라로이드 9컷 — 사용자가 준 9컷 포스터 예시를 글씨·테이프만 빼고 같게(사용자 요청). 프레임 그림 frames/polaroid9.png(1500×2100):
-         완전 흰 바탕 위 3×3 카드(416×529, 사이 45). 카드는 인스탁스 와이드 필름을 세로로 세운 모양(둥근 모서리, 한 단 들어간 사진 창,
-         왼쪽 두꺼운 여백 73에 "042.s" 볼록 각인). 조명은 예시처럼 왼쪽에서 비춰 그림자가 오른쪽으로 떨어집니다(사용자 요청).
-         사진 칸 307×486(세로). 10장 중 서로 다른 9장을 고릅니다. */
+      /* 폴라로이드 6컷 — 9컷 카드(frames/polaroid9.png 의 카드 하나, 그림자 포함 451×565)를 키워 6장으로(사용자 요청, 세로·가로 둘 다).
+         세로 frames/polaroid6v.png(1500×2100) 2×3, 카드 1.12배, 사진 칸 344×544.
+         가로 frames/polaroid6h.png(2100×1500) 3×2, 카드 1.2배, 사진 칸 368×583. 8장 찍고 서로 다른 6장을 고릅니다. */
       {
-        id: "pol9", name: "폴라로이드 9컷", enabled: true, instax: false, style: "frame", bg: "#FFFFFF",
+        id: "pol6v", name: "폴라로이드 6컷 세로", enabled: true, instax: false, style: "frame", bg: "#FFFFFF", shots: 8,
         canvas: { w:1500, h:2100 },
-        frame: null, frameSrc: "frames/polaroid9.png",
+        frame: null, frameSrc: "frames/polaroid6v.png",
         slots: [
-          {x:154, y:230, w:307, h:486, shot:0},
-          {x:615, y:230, w:307, h:486, shot:1},
-          {x:1076, y:230, w:307, h:486, shot:2},
-          {x:154, y:804, w:307, h:486, shot:3},
-          {x:615, y:804, w:307, h:486, shot:4},
-          {x:1076, y:804, w:307, h:486, shot:5},
-          {x:154, y:1378, w:307, h:486, shot:6},
-          {x:615, y:1378, w:307, h:486, shot:7},
-          {x:1076, y:1378, w:307, h:486, shot:8}
+          {x:329, y:126, w:344, h:544, shot:0},
+          {x:845, y:126, w:344, h:544, shot:1},
+          {x:329, y:770, w:344, h:544, shot:2},
+          {x:845, y:770, w:344, h:544, shot:3},
+          {x:329, y:1414, w:344, h:544, shot:4},
+          {x:845, y:1414, w:344, h:544, shot:5}
+        ],
+        texts: []
+      },
+      {
+        id: "pol6h", name: "폴라로이드 6컷 가로", enabled: true, instax: false, style: "frame", bg: "#FFFFFF", shots: 8,
+        canvas: { w:2100, h:1500 },
+        frame: null, frameSrc: "frames/polaroid6h.png",
+        slots: [
+          {x:322, y:106, w:368, h:583, shot:0},
+          {x:875, y:106, w:368, h:583, shot:1},
+          {x:1428, y:106, w:368, h:583, shot:2},
+          {x:322, y:796, w:368, h:583, shot:3},
+          {x:875, y:796, w:368, h:583, shot:4},
+          {x:1428, y:796, w:368, h:583, shot:5}
         ],
         texts: []
       }
@@ -293,7 +303,13 @@ function migrate(cfg){
     var ni = cfg.filters.map(function(f){ return f.id; }).indexOf("none");
     cfg.filters.splice(ni >= 0 ? ni+1 : 0, 0, mono);
   }
-  if (cfg.version >= 8){ cfg.version = 28; return cfg; }
+  // 폴라로이드 9컷을 6컷 세로·가로 두 개로 바꿨습니다(사용자 요청). 9컷 자리에 넣습니다. 한 번만
+  if (cfg.version < 29 && cfg.layouts){
+    var pi = cfg.layouts.map(function(l){ return l.id; }).indexOf("pol9");
+    var p6 = defaultConfig().layouts.filter(function(d){ return d.id === "pol6v" || d.id === "pol6h"; });
+    if (pi >= 0) cfg.layouts.splice.apply(cfg.layouts, [pi, 1].concat(p6)); else cfg.layouts = cfg.layouts.concat(p6);
+  }
+  if (cfg.version >= 8){ cfg.version = 29; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -526,8 +542,8 @@ function buildModes(){
 /* 카메라(인화 방식)에 필름이 정해져 있으면 그 보정을 씁니다.
    손님이 보정을 따로 고르지 않도록 3단계의 보정 버튼을 숨깁니다. */
 function lookOf(L){ return (L && L.look) ? filterById(L.look) : null; }
-/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 9컷에만 보입니다(사용자 요청). 흑백 3컷은 정해진 필름(흑백 띠), 카메라 8컷은 첫 번째 보정(원본) */
-var COLOR_PICK = ["film8", "pol9"];
+/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 6컷에만 보입니다(사용자 요청). 흑백 3컷은 정해진 필름(흑백 띠), 카메라 8컷은 첫 번째 보정(원본) */
+var COLOR_PICK = ["film8", "pol6v", "pol6h"];
 function syncLook(){
   var L = enabledLayouts()[cur], look = lookOf(L), pick = !look && !!L && COLOR_PICK.indexOf(L.id) >= 0;
   $("filters").hidden = !pick; $("step3Title").hidden = !pick;
