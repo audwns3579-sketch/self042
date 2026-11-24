@@ -116,10 +116,11 @@ function defaultConfig(){
         texts: []
       },
       /* 폴라로이드 9컷 — 사용자가 준 9컷 포스터 예시를 글씨·테이프만 빼고 같게(사용자 요청). 프레임 그림 frames/polaroid9.png(1500×2100):
-         거의 흰 종이(#FBFAF8) 위 3×3 폴라로이드 카드(416×529, 사이 45), 카드마다 왼쪽 두꺼운 여백(73)에 "042.s" 음영 각인, 옅은 그림자.
+         완전 흰 바탕 위 3×3 카드(416×529, 사이 45). 카드는 인스탁스 와이드 필름을 세로로 세운 모양(둥근 모서리, 한 단 들어간 사진 창,
+         왼쪽 두꺼운 여백 73에 "042.s" 볼록 각인). 조명은 예시처럼 왼쪽에서 비춰 그림자가 오른쪽으로 떨어집니다(사용자 요청).
          사진 칸 307×486(세로). 10장 중 서로 다른 9장을 고릅니다. */
       {
-        id: "pol9", name: "폴라로이드 9컷", enabled: true, instax: false, style: "frame", bg: "#FBFAF8",
+        id: "pol9", name: "폴라로이드 9컷", enabled: true, instax: false, style: "frame", bg: "#FFFFFF",
         canvas: { w:1500, h:2100 },
         frame: null, frameSrc: "frames/polaroid9.png",
         slots: [
