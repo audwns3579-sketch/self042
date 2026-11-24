@@ -2110,13 +2110,13 @@ function startShooting(){
   runSession().catch(function(){ readyMode(true); });
 }
 
-/* ── 뷰티 — 촬영 전에 카메라를 보면서 직접 조절합니다(사용자 요청). 피부 매끈은 보정의 피부 세기를 바꾸고,
-   눈 크게·중안부 줄이기·얼굴 갸름은 구글 MediaPipe 얼굴 찾기(눈·코·입·귀 6점)로 얼굴마다 살짝 당겨 그립니다.
-   실시간 미리보기와 찍힌 사진에 똑같이 들어갑니다. 얼굴 찾기를 못 받거나 얼굴이 안 보이면 피부만 들어갑니다. */
-var BEAUTY = [ {k:"skin", n:"피부 매끈"}, {k:"eye", n:"눈 크게"}, {k:"mid", n:"중안부 줄이기"}, {k:"slim", n:"얼굴 갸름"} ];
+/* ── 뷰티 — 촬영 전에 카메라를 보면서 직접 조절합니다(사용자 요청). 피부 매끈은 몸 테두리가 거뭇하게 번져서 뺐고,
+   부스 촬영에는 보정의 피부 보정도 0 으로 넣습니다(사용자 요청). 눈 크게·중안부 줄이기·얼굴 갸름은 구글 MediaPipe 얼굴 찾기(눈·코·입·귀 6점)로 얼굴마다 살짝 당겨 그립니다.
+   실시간 미리보기와 찍힌 사진에 똑같이 들어갑니다. 얼굴 찾기를 못 받거나 얼굴이 안 보이면 뷰티 없이 찍힙니다. */
+var BEAUTY = [ {k:"eye", n:"눈 크게"}, {k:"mid", n:"중안부 줄이기"}, {k:"slim", n:"얼굴 갸름"} ];
 var B = null;
-function beautyReset(){ var f=activeFilter(); B = { skin:f.smooth||0, eye:0, mid:0, slim:0 }; syncBeautySliders(); }
-function beautyLook(f){ return B ? Object.assign({}, f, { smooth:B.skin }) : f; }
+function beautyReset(){ B = { eye:0, mid:0, slim:0 }; syncBeautySliders(); }
+function beautyLook(f){ return B ? Object.assign({}, f, { smooth:0 }) : f; }
 function beautyWarp(){ return !!B && (B.eye || B.mid || B.slim); }
 function syncBeautySliders(){ BEAUTY.forEach(function(q){ var e=$("bt_"+q.k); if (e){ e.value=B[q.k]; $("bto_"+q.k).textContent=B[q.k]; } }); }
 function beautyMode(on){
