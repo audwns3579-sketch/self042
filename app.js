@@ -1836,7 +1836,8 @@ $("pickDone").addEventListener("click", function(){
 var STICKERS = [
   { id:"heart", w:100, h:100, svg:'<path d="M50 86C20 64 8 48 8 32 8 18 19 9 31 9c8 0 15 4 19 11 4-7 11-11 19-11 12 0 23 9 23 23 0 16-12 32-42 54z" fill="#F06A8A" stroke="#fff" stroke-width="5"/>' },
   { id:"star", w:100, h:100, svg:'<path d="M50 6l12 30 32 2-25 20 8 32-27-18-27 18 8-32L6 38l32-2z" fill="#F4D03F" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>' },
-  { id:"spark", w:100, h:100, svg:'<path d="M50 4C54 38 62 46 96 50 62 54 54 62 50 96 46 62 38 54 4 50 38 46 46 38 50 4z" fill="#fff"/>' },
+  // 흰 반짝이: 흰 바탕(스티커 목록·밝은 사진)에서 안 보여서 옅은 그림자와 회색 테두리를 넣었습니다(사용자 요청)
+  { id:"spark", w:100, h:100, svg:'<path transform="translate(2.5 3.5)" d="M50 4C54 38 62 46 96 50 62 54 54 62 50 96 46 62 38 54 4 50 38 46 46 38 50 4z" fill="#000" fill-opacity=".22"/><path d="M50 4C54 38 62 46 96 50 62 54 54 62 50 96 46 62 38 54 4 50 38 46 46 38 50 4z" fill="#fff" stroke="#B4BCC6" stroke-width="2.5" stroke-linejoin="round"/>' },
   { id:"smile", w:100, h:100, svg:'<circle cx="50" cy="50" r="42" fill="#FFD84D" stroke="#fff" stroke-width="5"/><circle cx="36" cy="42" r="5" fill="#333"/><circle cx="64" cy="42" r="5" fill="#333"/><path d="M32 60q18 18 36 0" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round"/>' },
   { id:"crown", w:100, h:100, svg:'<path d="M10 74L16 30 36 50 50 20 64 50 84 30 90 74z" fill="#E8B84A" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>' },
   { id:"flower", w:100, h:100, svg:'<g fill="#F7A8C8" stroke="#fff" stroke-width="4"><circle cx="50" cy="24" r="17"/><circle cx="76" cy="44" r="17"/><circle cx="66" cy="74" r="17"/><circle cx="34" cy="74" r="17"/><circle cx="24" cy="44" r="17"/></g><circle cx="50" cy="52" r="12" fill="#FFD84D"/>' },
