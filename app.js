@@ -863,12 +863,22 @@ function free(c){ if (c && c.width){ c.width=0; c.height=0; } }
    흐린 복사본을 만든 뒤, 원본과 밝기 차가 작은 자리에만 섞습니다.
    잡티·모공은 주변과 차이가 작아서 다듬어지고,
    눈·눈썹·머리카락·얼굴 윤곽은 차이가 커서 그대로 남습니다. */
+/* 피부색 정도(0~1). 부스 촬영 피부 보정(f.skinOnly)은 이 값이 있는 곳에만 들어갑니다(사용자 요청).
+   YCbCr 피부 범위 + 채도·빨강 기운 범위로 빨간 커튼·주황 점퍼 같은 진한 색은 뺍니다. 경계는 부드럽게 줄입니다. */
+function skinBand(v, lo, hi, s){ var d=Math.min(v-lo, hi-v)/s+1; return d<0 ? 0 : d>1 ? 1 : d; }
+function skinW(r, g, b){
+  if (r<g || g<b*0.9) return 0;
+  var y=0.299*r+0.587*g+0.114*b, cb=128-0.168736*r-0.331264*g+0.5*b, cr=128+0.5*r-0.418688*g-0.081312*b;
+  var mx=r, mn=b<g ? b : g, sat=(mx-mn)/(mx||1), rg=(r-g)/(r||1), yl=(y-60)/20;
+  return skinBand(cb,85,125,6)*skinBand(cr,135,168,6)*skinBand(sat,0.08,0.48,0.08)*skinBand(rg,0.04,0.32,0.06)*(yl<0 ? 0 : yl>1 ? 1 : yl);
+}
 function softenInto(dst, src, f){
-  var a = softAlpha(f);
-  if (a<=0 || !(CFG.blurPx>0)) return;
+  var a = softAlpha(f), skin = !!f.skinOnly;
+  if (a<=0 || (!skin && !(CFG.blurPx>0))) return;
   var W = dst.width, H = dst.height;
   if (!W || !H) return;
-  var r = softBlur(W, H);
+  // 피부만 보정은 흐림을 8px(긴 쪽 1600 기준)로 작게 잡아 테두리 쪽으로 번지지 않게 합니다
+  var r = skin ? Math.max(1, 8*Math.max(W,H)/1600) : softBlur(W, H);
 
   var blur = document.createElement("canvas");
   blur.width=W; blur.height=H;
@@ -901,7 +911,7 @@ function softenInto(dst, src, f){
   free(blur);
 
   var op = o.data, bp = b.data;
-  var t = softThreshold(f), inv = 1/t;
+  var t = skin ? 20 : softThreshold(f), inv = 1/t;
   for (var i=0; i<op.length; i+=4){
     // 밝기 차이로 판단합니다. 색이 달라도 밝기가 비슷하면 피부로 봅니다.
     var dl = 0.299*(bp[i]-op[i]) + 0.587*(bp[i+1]-op[i+1]) + 0.114*(bp[i+2]-op[i+2]);
@@ -910,6 +920,8 @@ function softenInto(dst, src, f){
     // 두 번 제곱해서 경계 근처에서는 빠르게 손을 뗍니다. 눈가 후광을 줄여줍니다.
     var m = 1 - n*n;
     var k = m * m * a;
+    // 원본과 흐린 쪽이 둘 다 피부색이어야 섞습니다. 배경·옷이 피부로 번져 들어오는 것(거뭇한 테두리)을 막습니다
+    if (skin){ k *= Math.min(skinW(op[i],op[i+1],op[i+2]), skinW(bp[i],bp[i+1],bp[i+2])); if (k<=0) continue; }
     op[i]   += (bp[i]  -op[i]  )*k;
     op[i+1] += (bp[i+1]-op[i+1])*k;
     op[i+2] += (bp[i+2]-op[i+2])*k;
@@ -1202,12 +1214,23 @@ function slimInto(cv, s){
 /* src(비디오나 캔버스)를 out 크기로 그리고 보정을 입힙니다.
    촬영·비교·실시간 미리보기가 모두 이 함수를 써서 보이는 대로 찍힙니다.
    순서: 색 보정 → 얼굴 줄이기 → 피부 보정 → 색감 덧씌우기 → 먹색 띄우기 */
+/* 이미 그려진 캔버스에 색 보정만 입힙니다(drawLook 의 피부만 보정 때) */
+function colorInto(cv, f){
+  var ctx=cv.getContext("2d"), css=colorCss(f);
+  if (!ctxFilterWorks()){ applyMatrix(ctx, cv.width, cv.height, f); return; }
+  if (css==="none") return;
+  var tmp=document.createElement("canvas"); tmp.width=cv.width; tmp.height=cv.height;
+  tmp.getContext("2d").drawImage(cv,0,0);
+  ctx.save(); ctx.clearRect(0,0,cv.width,cv.height); ctx.filter=css; ctx.drawImage(tmp,0,0); ctx.restore();
+  free(tmp);
+}
 function drawLook(out, src, f, mirror, slim){
   var W=out.width, H=out.height, ox=out.getContext("2d");
+  var pre = !!f.skinOnly && softAlpha(f) > 0;   // 피부색은 색(흑백 등)을 입히기 전 사진으로 가려야 해서, 보정 뒤에 색을 입힙니다
   ox.save();
   if (mirror){ ox.translate(W,0); ox.scale(-1,1); }
   // iOS 17 아래 사파리는 ctx.filter 를 무시하므로 색은 직접 계산합니다
-  if (ctxFilterWorks()){
+  if (ctxFilterWorks() && !pre){
     ox.filter = colorCss(f);
     ox.drawImage(src,0,0,W,H);
     ox.filter = "none";
@@ -1215,10 +1238,11 @@ function drawLook(out, src, f, mirror, slim){
   } else {
     ox.drawImage(src,0,0,W,H);
     ox.restore();
-    applyMatrix(ox, W, H, f);
+    if (!pre) applyMatrix(ox, W, H, f);
   }
   slimInto(out, slim);
   softenInto(out, out, f);
+  if (pre) colorInto(out, f);
   overlayInto(ox, W, H, f);
   lutInto(out, f);        // 가져온 색감 파일(*.cube *.xmp *.acv)
 }
@@ -2197,12 +2221,12 @@ function startShooting(){
 }
 
 /* ── 뷰티 — 촬영 전에 카메라를 보면서 직접 조절합니다(사용자 요청). 피부 매끈은 몸 테두리가 거뭇하게 번져서 뺐고,
-   부스 촬영에는 보정의 피부 보정도 0 으로 넣습니다(사용자 요청). 눈 크게·중안부 줄이기·얼굴 갸름은 구글 MediaPipe 얼굴 찾기(눈·코·입·귀 6점)로 얼굴마다 살짝 당겨 그립니다.
+   부스 촬영에는 피부색인 곳에만 들어가는 피부 보정(세기 50, skinOnly)을 넣습니다(사용자 요청, 원본·흑백 모두). 눈 크게·중안부 줄이기·얼굴 갸름은 구글 MediaPipe 얼굴 찾기(눈·코·입·귀 6점)로 얼굴마다 살짝 당겨 그립니다.
    실시간 미리보기와 찍힌 사진에 똑같이 들어갑니다. 얼굴 찾기를 못 받거나 얼굴이 안 보이면 뷰티 없이 찍힙니다. */
 var BEAUTY = [ {k:"eye", n:"눈 크게"}, {k:"mid", n:"중안부 줄이기"}, {k:"slim", n:"얼굴 갸름"} ];
 var B = null;
 function beautyReset(){ B = { eye:0, mid:0, slim:0 }; syncBeautySliders(); }
-function beautyLook(f){ return B ? Object.assign({}, f, { smooth:0 }) : f; }
+function beautyLook(f){ return B ? Object.assign({}, f, { smooth:50, skinOnly:true }) : f; }
 function beautyWarp(){ return !!B && (B.eye || B.mid || B.slim); }
 function syncBeautySliders(){ BEAUTY.forEach(function(q){ var e=$("bt_"+q.k); if (e){ e.value=B[q.k]; $("bto_"+q.k).textContent=B[q.k]; } }); }
 function beautyMode(on){
