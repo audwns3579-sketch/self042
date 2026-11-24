@@ -1410,7 +1410,7 @@ function flash(){
 function runSession(){
   var L = enabledLayouts()[cur];
   var need = needShots(L), total = shootTotal(L), pick = pickMode();
-  S.shots=[]; S.cancelled=false; S.enough=false; ticks(0,total); $("shootPv").hidden=true;
+  S.shots=[]; S.cancelled=false; S.enough=false; ticks(0,total); clearShootPv();
   function next(i){
     if (S.cancelled || S.enough || i>=total) return Promise.resolve();
     return waitRelease(i+1, total).then(function(c){
@@ -2105,7 +2105,7 @@ $("startBtn").addEventListener("click", function(){
   // 카메라가 켜지면 바로 릴리즈 촬영을 기다립니다(촬영 시작 버튼 없이, 사용자 요청).
   // 켜지는 동안 촬영 시작·카메라 전환 버튼이 잠깐 보이지 않게 숨기고 안내만 띄웁니다(사용자 요청).
   readyMode(false); $("shootHint").textContent = "카메라를 켜는 중입니다";
-  beautyReset(); beautyMode(false);
+  beautyReset(); beautyMode(false); clearShootPv();   // 앞 손님의 마지막 사진이 뷰티 화면에 남아 보이지 않게(사용자 요청)
   openCamera()
     .then(function(){ readyMode(false); beautyMode(true); })   // 카메라가 켜지면 먼저 뷰티를 고르고 "촬영 시작"(사용자 요청)
     .catch(function(err){ stopShootTimer(); say(cameraError(err),0); releaseAwake(); show(setupEl); });
@@ -2252,7 +2252,7 @@ function stopShootTimer(){ if (S.stopShootTimer){ S.stopShootTimer(); S.stopShoo
 function shootTimeUp(){
   S.stopShootTimer = null; $("doneBtn").hidden = true;
   if (S.shots.length >= needShots(enabledLayouts()[cur])){ S.enough = true; return; }
-  S.cancelled = true; readyMode(true); stopStream(); releaseAwake();
+  S.cancelled = true; readyMode(true); stopStream(); releaseAwake(); clearShootPv();
   freeCanvases(S.shots); S.shots = []; show(setupEl);
   say("시간이 끝났습니다. 처음부터 다시 찍어 주세요.", 6000);
 }
@@ -2273,8 +2273,10 @@ $("goBtn").addEventListener("click", function(){
   readyMode(false);
   runSession().catch(function(){ readyMode(true); });
 });
+/* 촬영 화면 오른쪽 아래 PREVIEW(방금 찍은 사진)를 숨기고 그림도 지웁니다 */
+function clearShootPv(){ $("shootPv").hidden=true; var pv=$("shootPvC"); pv.getContext("2d").clearRect(0,0,pv.width,pv.height); }
 $("cancelBtn").addEventListener("click", function(){
-  stopShootTimer(); S.cancelled=true; $("doneBtn").hidden=true; readyMode(true); stopStream(); releaseAwake(); show(setupEl);
+  clearShootPv(); stopShootTimer(); S.cancelled=true; $("doneBtn").hidden=true; readyMode(true); stopStream(); releaseAwake(); show(setupEl);
 });
 $("doneBtn").addEventListener("click", function(){ S.enough=true; $("doneBtn").hidden=true; });
 $("flipBtn").addEventListener("click", function(){
