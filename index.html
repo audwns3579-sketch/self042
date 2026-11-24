@@ -106,7 +106,7 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
   background:none;border:0;border-bottom:1px dashed transparent;color:var(--fg);
   padding:0;width:11ch;max-width:100%;line-height:1.1;text-align:center}
 #brandEdit:focus{outline:none;border-bottom-color:var(--safelight)}
-.note{font-size:15px;color:var(--muted);line-height:1.6}
+.note{font-size:15px;color:var(--fg);line-height:1.6}
 .note b{color:var(--fg);font-weight:500}
 .field{display:flex;flex-direction:column;gap:18px;align-items:center;width:100%}
 #setup .field .eyebrow{font-size:15px}
@@ -263,7 +263,7 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 .stk{position:absolute;cursor:grab;user-select:none;-webkit-user-drag:none}
 .stk.sel{outline:3px dashed var(--lamp);outline-offset:6px;border-radius:6px}
 .stk-side{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw)}
-.stk-lab{margin:6px 0 0;font-size:15px;color:var(--muted);line-height:1.5}
+.stk-lab{margin:6px 0 0;font-size:15px;color:var(--fg);line-height:1.5}
 .stk-tabs{justify-content:flex-start;gap:6px}
 .stk-tabs .chip{padding:9px 14px;font-size:15px}
 .stk-pal{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:min(42vh,420px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px;align-content:start}
@@ -278,7 +278,8 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
-.hint{font-size:13px;color:var(--muted);text-align:center;line-height:1.6;max-width:36ch}
+/* 설명글: 좁은 폭(예전 36ch)에서 문장 중간이 끊기지 않게 폭 제한을 없애고, 흐린 회색 대신 본문색(밝은 화면은 검정)으로(사용자 요청) */
+.hint{font-size:15px;color:var(--fg);text-align:center;line-height:1.6;max-width:none}
 /* QR 은 지금의 반 크기(사용자 요청). qrcode 가 cellSize 5 로 약 205px 를 그려서 화면에서만 줄입니다 */
 #qrImg svg{display:block;width:104px;height:104px}
 /* 가로 화면: 왼쪽에 인화 미리보기, 오른쪽 빈 곳에 QR · 버튼 · 안내(사용자 요청). 세로 화면은 위아래로 쌓입니다. */
