@@ -2497,7 +2497,7 @@ $("printBtn").addEventListener("click", function(){
    인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
 var PRINT_MOTION = { film8:"tv", pol6v:"printer", pol6h:"printer", bw3:"steel" };
 var PM_SEC = 6, PM_HOME_MS = 5000;
-["tv","printer","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
+["tv","printer-gray","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
 var pm=null;   // 지금 재생 중인 모션
 
 function pmClamp(v){ return v<0 ? 0 : v>1 ? 1 : v; }
@@ -2551,26 +2551,41 @@ function pmPaper(x, img, o){
 
 /* 멈추는 순간(t0) 빳빳한 종이가 짧게 "탁" 떨리는 각도(라디안) */
 function pmRattle(t, t0, a){ return t<t0 ? 0 : a*Math.sin((t-t0)*38)*Math.exp(-(t-t0)*11); }
-/* 흑백 3컷: 롤러 사이에서 거의 일정하게 밀려 나와 받이에 내려앉습니다 */
+/* 놓인 종이가 실제처럼 떨어집니다: t0 부터 dur 초 동안 점점 빨라지며 y0→y1, 닿은 뒤 hop 높이만큼 작게 두 번 튕깁니다 */
+function pmFall(t, t0, dur, y0, y1, hop){
+  if (t<=t0) return y0;
+  if (t<t0+dur){ var k=(t-t0)/dur; return y0+(y1-y0)*k*k; }
+  var u=t-t0-dur, h1=.2, h2=.12;
+  if (u<h1) return y1 - hop*Math.sin(Math.PI*u/h1);
+  if (u<h1+h2) return y1 - hop*.28*Math.sin(Math.PI*(u-h1)/h2);
+  return y1;
+}
+/* 흑백 3컷: 롤러 사이에서 밀려 나오다, 롤러에서 놓이면 받침대 안으로 툭 떨어집니다 */
 function pmSteel(x, t, img){
-  var h=772, w=h*img.width/img.height, slot=203;
-  var f=pmKeys(t,[[.2,0],[1.0,.16],[1.15,.165],[1.9,.34],[2.05,.345],[2.8,.52],[2.95,.525],[3.7,.7],[3.85,.705],[4.9,1]]);
-  var drop=t<4.9 ? -26 : -26 + pmKeys(t,[[4.9,0],[5.25,34],[5.55,20],[6,26]]);
-  var calm=Math.exp(-Math.max(0,t-4.9)*3.2);
-  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+3)+drop*f, free:slot, t:t, freq:1.5, amp:(t<4.9 ? 6 : 8*calm)*pmClamp(f*3), tilt:pmRattle(t,5.25,.012),
-    clip:function(){ return slot; }, warm:1-pmPart(t,5,6), slotShade:1-pmPart(t,5.2,6) });
+  var h=690, w=h*img.width/img.height, slot=203, floor=950, out=4.85;
+  var f=pmKeys(t,[[.2,0],[1.0,.16],[1.15,.165],[1.9,.34],[2.05,.345],[2.8,.52],[2.95,.525],[3.7,.7],[3.85,.705],[4.7,1]]);
+  var held=slot-10-h*(1-f);                                  // 아직 롤러가 잡고 있을 때(끝 10px 는 롤러 밑)
+  var top=t<out ? held : pmFall(t, out, .27, slot-10, floor-h, 17);
+  var land=out+.27;
+  pmPaper(x, img, { w:w, h:h, cx:960, top:top, free:slot, t:t, freq:1.5, amp:t<out ? 2*pmClamp(f*3) : 0,
+    tilt:pmRattle(t,land,.016), persp:.035*pmPart(t,out,land), clip:t<out ? function(){ return slot; } : undefined,
+    shadow:t<out ? 1 : 1-.65*pmPart(t,out,land), warm:1-pmPart(t,5.2,6), slotShade:1-pmPart(t,out,land) });
 }
-/* 폴라로이드: 조금씩 내밀다가 휙 휘날리며 받이 위로 */
+/* 폴라로이드: 조금씩 내밀다 휙 나와서 놓이고, 받이 판 위로 미끄러져 앞 턱 안쪽에 부딪혀 멈춥니다 */
 function pmPrinter(x, t, img){
-  var h=770, w=h*img.width/img.height;
-  var line=function(px){ return 135 + px*.077; }, slot=line(960);
-  var f=pmKeys(t,[[.2,0],[.9,.13],[1.25,.13],[1.9,.24],[2.3,.25],[2.7,.33],[3.0,.34],[3.75,1.06],[4.25,.985],[4.8,1.008],[5.4,1]]);
-  var wild=pmKeys(t,[[0,1.5],[2.9,2.5],[3.35,26],[3.9,18],[4.6,7],[5.4,2],[6,0]]);
-  var tilt=pmKeys(t,[[0,.075],[2.9,.075],[3.5,.02],[4.1,.045],[6,.035]]) + pmRattle(t,3.75,.018);
-  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+34), free:slot, t:t, freq:t>2.9 ? 2.4 : 1.4, amp:wild*pmClamp(f*3), tilt:tilt,
-    clip:line, shadow:1+pmKeys(t,[[2.9,0],[3.4,1.2],[5.4,.1],[6,0]]), slotShade:1-pmPart(t,4.6,5.6) });
+  var h=590, w=h*img.width/img.height*1.06;
+  var line=function(px){ return 135 + px*.077; }, slot=line(960), out=3.75, restTop=295;
+  var f=pmKeys(t,[[.2,0],[.9,.15],[1.25,.15],[1.9,.28],[2.3,.29],[2.7,.38],[3.0,.39],[3.75,1]]);
+  var held=slot-8-h*(1-f);
+  var top=t<out ? held : pmFall(t, out, .42, slot-8, restTop, 14);
+  var land=out+.42, down=pmPart(t,out,land);
+  var wild=pmKeys(t,[[0,.5],[2.9,1],[3.35,8],[3.75,4],[4.1,0],[6,0]]);
+  pmPaper(x, img, { w:w, h:h, cx:960, top:top, free:slot, t:t, freq:2, amp:wild*pmClamp(f*3),
+    tilt:pmKeys(t,[[0,.075],[3.0,.075],[3.75,.03],[4.2,.052],[6,.045]]) + pmRattle(t,land,.014), persp:.13*down,
+    clip:t<out ? line : undefined, shadow:t<out ? 1.3 : 1.3-1.05*down, slotShade:1-down });
 }
-/* 인생네컷: 위 TV 부터 지직거리며 위에서 아래로 찍히고, 맨 아래 TV 테이프 구멍에서 나와 바닥에 툭 */
+/* 인생네컷(A 방식): 인화지가 통째로 이어진 채 아래쪽 끝부터 위 TV 에 나타나 TV 1→2→3 을 타고 내려옵니다.
+   그다음 맨 아래 TV 테이프 구멍에서 나와 TV 앞 바닥에 작은 크기 그대로 툭 떨어지고, 화면(카메라)이 그쪽으로 다가갑니다 */
 var PM_TV = [ {x:791,y:115,w:262,h:204}, {x:791,y:400,w:264,h:202}, {x:791,y:684,w:263,h:203} ];
 function pmNoise(){
   return [0,1,2].map(function(){
@@ -2579,48 +2594,54 @@ function pmNoise(){
     g.putImageData(d,0,0); return c;
   });
 }
+/* 카메라: 4.95~5.9초에 바닥의 종이로 다가갑니다(z 배, 가운데 cx,cy). 그림 밖이 보이지 않게 자릅니다 */
+function pmCam(t){
+  var k=pmEase(pmPart(t,4.95,5.9)), z=1+1.8*k;
+  var cx=960+(921-960)*k, cy=544+(900-544)*k;
+  cx=Math.min(1920-960/z, Math.max(960/z, cx)); cy=Math.min(1088-544/z, Math.max(544/z, cy));
+  if (t>4.78 && t<4.98) cy-=Math.abs(Math.sin((t-4.78)*47))*3*(4.98-t)/.2;   // 툭 떨어질 때 살짝 흔들림
+  return { z:z, cx:cx, cy:Math.min(1088-544/z, cy), k:k };
+}
 function pmTv(x, t, img){
   var frame=Math.floor(t*18);
+  var sw=262, sh=sw*img.height/img.width, first=PM_TV[0].y, end=PM_TV[2].y+PM_TV[2].h;
+  // 인화지의 위쪽 끝 위치: 처음엔 위 TV 화면 위에 숨어 있다가(아래쪽 끝부터 보임) 맨 아래 TV 밑으로 빠집니다
+  var run=pmKeys(t,[[.45,0],[1.1,.24],[1.2,.245],[1.9,.49],[2.0,.495],[2.7,.74],[2.8,.745],[3.45,1]]);
+  var py=first-sh+(end-first+sh)*run;
   PM_TV.forEach(function(s,i){
-    var on=.25+i*1.05, k=pmPart(t,on+.22,on+1.05);
-    if (t<on) return;
+    if (t<.2+i*.07) return;
     x.save();
     x.beginPath(); x.moveTo(s.x+14,s.y+4); x.quadraticCurveTo(s.x+s.w/2,s.y-3,s.x+s.w-14,s.y+4); x.quadraticCurveTo(s.x+s.w+1,s.y+s.h/2,s.x+s.w-10,s.y+s.h-4);
     x.quadraticCurveTo(s.x+s.w/2,s.y+s.h+3,s.x+10,s.y+s.h-4); x.quadraticCurveTo(s.x-1,s.y+s.h/2,s.x+14,s.y+4); x.clip();
     x.fillStyle="#1b2230"; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
-    x.globalAlpha=k<1 ? .85 : .09; x.drawImage(pm.noise[(frame+i)%3], s.x-4, s.y-6+(frame%3), s.w+8, s.h+12); x.globalAlpha=1;
-    if (k>0){
-      // 인화지를 위·가운데·아래로 나눠 한 화면에 한 조각씩
-      var dw=s.w, dh=Math.min(s.h, dw*(img.height/3)/img.width*1.25), dy=s.y+(s.h-dh)/2;
-      var jit=k<1 ? (Math.random()-.5)*5 : 0;
-      x.save(); x.beginPath(); x.rect(s.x-4,s.y-6,s.w+8,(dy-s.y+6)+dh*k); x.clip();
-      x.globalAlpha=k<1 ? .92 : 1; x.drawImage(img, 0, i*img.height/3, img.width, img.height/3, s.x+jit, dy, dw, dh); x.restore(); x.globalAlpha=1;
-      if (k<1){ x.fillStyle="rgba(215,235,255,.85)"; x.fillRect(s.x-4, dy+dh*k-2, s.w+8, 4); }
+    x.globalAlpha=.22; x.drawImage(pm.noise[(frame+i)%3], s.x-4, s.y-6+(frame%3), s.w+8, s.h+12); x.globalAlpha=1;
+    if (run>0 && py<s.y+s.h && py+sh>s.y){
+      var jit=run<1 ? (Math.random()-.5)*2.4 : 0;
+      x.globalAlpha=.96; x.drawImage(img, s.x+(s.w-sw)/2+jit, py, sw, sh); x.globalAlpha=1;
     }
-    x.fillStyle="rgba(0,0,0,.2)"; for (var y=s.y-2+(frame%2)*2; y<s.y+s.h; y+=4) x.fillRect(s.x-4,y,s.w+8,1.5);   // 주사선
-    var gl=x.createRadialGradient(s.x+s.w*.5,s.y+s.h*.5,20,s.x+s.w*.5,s.y+s.h*.5,s.w*.72); gl.addColorStop(0,"rgba(255,255,255,.04)"); gl.addColorStop(1,"rgba(0,0,0,.45)");
+    x.fillStyle="rgba(0,0,0,.18)"; for (var y=s.y-2+(frame%2)*2; y<s.y+s.h; y+=4) x.fillRect(s.x-4,y,s.w+8,1.5);   // 주사선
+    var gl=x.createRadialGradient(s.x+s.w*.5,s.y+s.h*.5,20,s.x+s.w*.5,s.y+s.h*.5,s.w*.72); gl.addColorStop(0,"rgba(255,255,255,.04)"); gl.addColorStop(1,"rgba(0,0,0,.42)");
     x.fillStyle=gl; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
     x.restore();
   });
-  if (t<3.55) return;
-  var slotY=951, sw=164, sh=sw*img.height/img.width;
-  if (t<4.65){
-    // 테이프 구멍에서 드르륵 밀려 나옴
-    var f=pmKeys(t,[[3.55,0],[3.85,.16],[3.95,.16],[4.25,.31],[4.35,.31],[4.65,.47]]);
-    pmPaper(x, img, { w:sw, h:sh, cx:921, top:slotY-sh+f*sh, free:slotY, t:t, freq:2.2, amp:2, clip:function(){ return slotY; }, shadow:.5, slotShade:1 });
+  if (t<3.4) return;
+  var slotY=951, pw=164, ph=pw*img.height/img.width, cam=pmCam(t), release=4.5, land=release+.28;
+  if (t<release){
+    // 테이프 구멍에서 드르륵: 앞으로 나오는 종이라 세로가 눌려 보입니다
+    var f=pmKeys(t,[[3.45,0],[3.75,.34],[3.85,.345],[4.12,.68],[4.22,.685],[4.45,1]]), vh=70;
+    pmPaper(x, img, { w:pw, h:vh, cx:921, top:slotY-vh+f*vh, free:slotY, t:t, freq:2, amp:0, clip:function(){ return slotY; }, shadow:.4, slotShade:1 });
     return;
   }
-  // 뚝 떨어지며 앞으로 커지고, 바닥에 닿으면 한 번 튕깁니다
-  var k=pmPart(t,4.65,5.3), g=k*k;
-  var bounce=t>5.3 ? -26*Math.abs(Math.sin((t-5.3)*9))*Math.exp(-(t-5.3)*5.5) : 0;
-  var w1=sw+(610-sw)*g, h1=sh*.47+(350-sh*.47)*g;     // 바닥에 누우며 세로는 눌려 보입니다
-  var top=slotY+(722-slotY)*g + bounce - Math.sin(Math.PI*k)*60;
-  pmPaper(x, img, { w:w1, h:h1, cx:921+(1000-921)*g, top:top, free:top, t:t, freq:2.6, amp:8*Math.sin(Math.PI*Math.min(1,k*1.05))+ (t>5.3 ? 4*Math.exp(-(t-5.3)*6) : 0),
-    tilt:-.11*g+.05*Math.sin(Math.PI*k)+pmRattle(t,5.3,.022), persp:.34*g, shadow:1.4-g });
-  var dust=pmPart(t,5.3,5.95);
+  // 구멍에서 놓여 바닥으로 툭. 크기는 거의 그대로이고, 카메라가 다가가며 내려다보는 각도가 됩니다(눌림이 펴짐)
+  var fall=pmPart(t,release,land), flat=70+14*fall;
+  var w1=pw+36*fall, h1=flat+(162-flat)*cam.k;
+  var restTop=1030-84, top=pmFall(t, release, .28, slotY, restTop, 13) + (1074-162-restTop)*cam.k;
+  pmPaper(x, img, { w:w1, h:h1, cx:921, top:top, free:top, t:t, freq:2, amp:0,
+    tilt:-.09*fall + pmRattle(t,land,.035), persp:.3-.14*cam.k, shadow:t<land ? .9 : .3 });
+  var dust=pmPart(t,land,land+.5);
   if (dust>0 && dust<1){
-    x.fillStyle="rgba(150,140,128,"+(.35*(1-dust)).toFixed(3)+")";
-    for (var d=0;d<18;d++){ var an=d/18*Math.PI*2, rx=300+170*dust, ry=70+60*dust; x.beginPath(); x.ellipse(1000+Math.cos(an)*rx, 1040+Math.sin(an)*ry*.45-30*dust*(d%3), 12+28*dust, 7+14*dust, 0,0,7); x.fill(); }
+    x.fillStyle="rgba(150,140,128,"+(.3*(1-dust)).toFixed(3)+")";
+    for (var d=0;d<14;d++){ var an=d/14*Math.PI*2; x.beginPath(); x.ellipse(921+Math.cos(an)*(108+60*dust), 1022+Math.sin(an)*(22+14*dust)-8*dust*(d%3), 5+12*dust, 3+6*dust, 0,0,7); x.fill(); }
   }
 }
 var PM_DRAW = { tv:pmTv, printer:pmPrinter, steel:pmSteel };
@@ -2653,8 +2674,13 @@ function openPrintMotion(L, blob, onHome, accepted){
       if (pm!==me) return;
       var t=(performance.now()-t0)/1000;
       x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,cv.width,cv.height); x.setTransform(me.k,0,0,me.k,0,0);
+      if (kind==="tv"){
+        // 카메라 이동: 종이(캔버스)와 배경 그림에 같은 확대·이동을 겁니다
+        var cam=pmCam(Math.min(t,PM_SEC)), tx=960-cam.cx*cam.z, ty=544-cam.cy*cam.z;
+        x.translate(tx,ty); x.scale(cam.z,cam.z);
+        el.querySelector(".pm-bg").style.transform="translate("+(tx*u).toFixed(2)+"px,"+(ty*u).toFixed(2)+"px) scale("+cam.z.toFixed(4)+")";
+      }
       PM_DRAW[kind](x, Math.min(t,PM_SEC), paper);
-      if (kind==="tv") el.querySelector(".pm-stage").style.marginTop=(t>5.3 && t<5.7 ? (Math.sin((t-5.3)*70)*7*(5.7-t)/.4).toFixed(1) : 0)+"px";
       if (t>=PM_SEC && me.ok){ pmFinish(); return; }
       me.raf=requestAnimationFrame(tick);
     })();
