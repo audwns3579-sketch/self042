@@ -2515,10 +2515,10 @@ function pmPaper(x, img, o){
   var N=90, w=o.w, h=o.h, pts=[], i;
   for (i=0;i<=N;i++){
     var v=i/N, s=pmClamp((o.top+v*h-o.free)/h);           // 배출구에서 멀수록(자유로운 끝) 많이 흔들립니다
-    var ph=Math.PI*2*(v*1.15 - o.t*o.freq);
+    var ph=Math.PI*2*(v*.45 - o.t*o.freq*.6);   // 빳빳한 인화지라 한 번만 살짝 휩니다
     var a=o.amp*Math.pow(s,1.35);
-    var dx=a*Math.sin(ph) + o.amp*.55*s*s*Math.sin(o.t*7.3);
-    var wz=1 + (a/w)*.9*Math.cos(ph) - (o.persp||0)*(1-v);  // 앞으로 부푼 곳은 넓게
+    var dx=a*Math.sin(ph) + o.amp*.15*s*s*Math.sin(o.t*7.3);
+    var wz=1 + (a/w)*.5*Math.cos(ph) - (o.persp||0)*(1-v);  // 앞으로 부푼 곳은 넓게
     var dy=a*.28*Math.cos(ph);
     pts.push({ y:o.top+v*h+dy, cx:o.cx+dx, hw:w*wz/2, sh:Math.cos(ph)*pmClamp(a/22) });
   }
@@ -2542,20 +2542,22 @@ function pmPaper(x, img, o){
   }
   // 휨에 따른 밝기: 한 번에 부드러운 그라데이션으로
   var gr=x.createLinearGradient(0,pts[0].y,0,pts[N].y);
-  for (i=0;i<=N;i+=6){ var sh=pts[i].sh; gr.addColorStop(i/N, sh>0 ? "rgba(255,255,255,"+(sh*.17).toFixed(3)+")" : "rgba(0,0,0,"+(-sh*.3).toFixed(3)+")"); }
+  for (i=0;i<=N;i+=6){ var sh=pts[i].sh; gr.addColorStop(i/N, sh>0 ? "rgba(255,255,255,"+(sh*.085).toFixed(3)+")" : "rgba(0,0,0,"+(-sh*.15).toFixed(3)+")"); }
   x.fillStyle=gr; x.fillRect(0,pts[0].y-60,1920,pts[N].y-pts[0].y+120);
   if (o.warm>0){ x.globalCompositeOperation="multiply"; x.fillStyle="rgba(243,185,121,"+(o.warm*.55).toFixed(3)+")"; x.fillRect(0,-100,1920,1300); x.globalCompositeOperation="source-over"; }
   if (o.slotShade){ var g2=x.createLinearGradient(0,o.free,0,o.free+90); g2.addColorStop(0,"rgba(0,0,0,"+(o.slotShade*.6).toFixed(3)+")"); g2.addColorStop(1,"rgba(0,0,0,0)"); x.fillStyle=g2; x.fillRect(0,o.free-40,1920,130); }
   x.restore();
 }
 
+/* 멈추는 순간(t0) 빳빳한 종이가 짧게 "탁" 떨리는 각도(라디안) */
+function pmRattle(t, t0, a){ return t<t0 ? 0 : a*Math.sin((t-t0)*38)*Math.exp(-(t-t0)*11); }
 /* 흑백 3컷: 롤러 사이에서 거의 일정하게 밀려 나와 받이에 내려앉습니다 */
 function pmSteel(x, t, img){
   var h=772, w=h*img.width/img.height, slot=203;
   var f=pmKeys(t,[[.2,0],[1.0,.16],[1.15,.165],[1.9,.34],[2.05,.345],[2.8,.52],[2.95,.525],[3.7,.7],[3.85,.705],[4.9,1]]);
   var drop=t<4.9 ? -26 : -26 + pmKeys(t,[[4.9,0],[5.25,34],[5.55,20],[6,26]]);
   var calm=Math.exp(-Math.max(0,t-4.9)*3.2);
-  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+3)+drop*f, free:slot, t:t, freq:1.5, amp:(t<4.9 ? 17 : 26*calm)*pmClamp(f*3),
+  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+3)+drop*f, free:slot, t:t, freq:1.5, amp:(t<4.9 ? 6 : 8*calm)*pmClamp(f*3), tilt:pmRattle(t,5.25,.012),
     clip:function(){ return slot; }, warm:1-pmPart(t,5,6), slotShade:1-pmPart(t,5.2,6) });
 }
 /* 폴라로이드: 조금씩 내밀다가 휙 휘날리며 받이 위로 */
@@ -2563,8 +2565,8 @@ function pmPrinter(x, t, img){
   var h=770, w=h*img.width/img.height;
   var line=function(px){ return 135 + px*.077; }, slot=line(960);
   var f=pmKeys(t,[[.2,0],[.9,.13],[1.25,.13],[1.9,.24],[2.3,.25],[2.7,.33],[3.0,.34],[3.75,1.06],[4.25,.985],[4.8,1.008],[5.4,1]]);
-  var wild=pmKeys(t,[[0,5],[2.9,8],[3.35,92],[3.9,66],[4.6,24],[5.4,6],[6,0]]);
-  var tilt=pmKeys(t,[[0,.075],[2.9,.075],[3.5,-.075],[4.1,.065],[4.8,.012],[5.5,.04],[6,.035]]);
+  var wild=pmKeys(t,[[0,1.5],[2.9,2.5],[3.35,26],[3.9,18],[4.6,7],[5.4,2],[6,0]]);
+  var tilt=pmKeys(t,[[0,.075],[2.9,.075],[3.5,.02],[4.1,.045],[6,.035]]) + pmRattle(t,3.75,.018);
   pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+34), free:slot, t:t, freq:t>2.9 ? 2.4 : 1.4, amp:wild*pmClamp(f*3), tilt:tilt,
     clip:line, shadow:1+pmKeys(t,[[2.9,0],[3.4,1.2],[5.4,.1],[6,0]]), slotShade:1-pmPart(t,4.6,5.6) });
 }
@@ -2605,7 +2607,7 @@ function pmTv(x, t, img){
   if (t<4.65){
     // 테이프 구멍에서 드르륵 밀려 나옴
     var f=pmKeys(t,[[3.55,0],[3.85,.16],[3.95,.16],[4.25,.31],[4.35,.31],[4.65,.47]]);
-    pmPaper(x, img, { w:sw, h:sh, cx:921, top:slotY-sh+f*sh, free:slotY, t:t, freq:2.2, amp:5, clip:function(){ return slotY; }, shadow:.5, slotShade:1 });
+    pmPaper(x, img, { w:sw, h:sh, cx:921, top:slotY-sh+f*sh, free:slotY, t:t, freq:2.2, amp:2, clip:function(){ return slotY; }, shadow:.5, slotShade:1 });
     return;
   }
   // 뚝 떨어지며 앞으로 커지고, 바닥에 닿으면 한 번 튕깁니다
@@ -2613,8 +2615,8 @@ function pmTv(x, t, img){
   var bounce=t>5.3 ? -26*Math.abs(Math.sin((t-5.3)*9))*Math.exp(-(t-5.3)*5.5) : 0;
   var w1=sw+(610-sw)*g, h1=sh*.47+(350-sh*.47)*g;     // 바닥에 누우며 세로는 눌려 보입니다
   var top=slotY+(722-slotY)*g + bounce - Math.sin(Math.PI*k)*60;
-  pmPaper(x, img, { w:w1, h:h1, cx:921+(1000-921)*g, top:top, free:top, t:t, freq:2.6, amp:26*Math.sin(Math.PI*Math.min(1,k*1.05))+ (t>5.3 ? 14*Math.exp(-(t-5.3)*6) : 0),
-    tilt:-.11*g+.05*Math.sin(Math.PI*k), persp:.34*g, shadow:1.4-g });
+  pmPaper(x, img, { w:w1, h:h1, cx:921+(1000-921)*g, top:top, free:top, t:t, freq:2.6, amp:8*Math.sin(Math.PI*Math.min(1,k*1.05))+ (t>5.3 ? 4*Math.exp(-(t-5.3)*6) : 0),
+    tilt:-.11*g+.05*Math.sin(Math.PI*k)+pmRattle(t,5.3,.022), persp:.34*g, shadow:1.4-g });
   var dust=pmPart(t,5.3,5.95);
   if (dust>0 && dust<1){
     x.fillStyle="rgba(150,140,128,"+(.35*(1-dust)).toFixed(3)+")";
