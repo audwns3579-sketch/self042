@@ -2500,14 +2500,15 @@ var PM_TEXT = { vintage:["현상하는 중입니다","사진이 나왔습니다"
 var PM_GEO = { vintage:{top:226,h:745}, instant:{top:200,h:760}, steel:{top:206,h:772} };
 ["vintage","instant","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
 var pmTimers=[], pmUrl=null;
-function openPrintMotion(L){
-  var kind = L && PRINT_MOTION[L.id]; if (!kind || !S.blob) return false;
+function openPrintMotion(L, blob){
+  blob = blob || S.blob;
+  var kind = L && PRINT_MOTION[L.id]; if (!kind || !blob) return false;
   closePrintMotion();
   var el=$("printMotion"), ratio=L.canvas.w/L.canvas.h, g=PM_GEO[kind];
   var u=Math.max(innerWidth/1920, innerHeight/1088);   // 그림 1픽셀이 화면 몇 px 인지(화면을 꽉 채움)
   var h=Math.min(g.h, 1040/ratio), top=g.top+(g.h-h)/2;
   el.style.setProperty("--u", u+"px"); el.style.setProperty("--ph", (h*u)+"px"); el.style.setProperty("--pw", (h*ratio*u)+"px"); el.style.setProperty("--pt", (top*u)+"px");
-  pmUrl=URL.createObjectURL(S.blob);
+  pmUrl=URL.createObjectURL(blob);
   el.className="pm-"+kind;
   el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><div class="pm-paper"><div class="pm-sheet">'+
     '<img class="pm-img" src="'+pmUrl+'" alt="인화 사진"><i class="pm-veil"></i></div></div><i class="pm-front"></i></div><i class="pm-flash"></i>'+
@@ -2523,6 +2524,25 @@ function closePrintMotion(){
   var el=$("printMotion"); el.hidden=true; el.innerHTML="";
   if (pmUrl){ URL.revokeObjectURL(pmUrl); pmUrl=null; }
 }
+/* 관리자 "인화 모션 보기" — 칸을 색 견본 그림으로 채운 인화지로 모션만 재생합니다. 인화 서버에는 보내지 않습니다 */
+function motionSample(i){
+  var c=document.createElement("canvas"); c.width=900; c.height=900; var x=c.getContext("2d");
+  x.fillStyle=["#8fa9c4","#c99a8a","#a9bd8d","#b79ac2","#d6bd83","#87b8b4","#c58f9f","#9aa6c9"][i%8]; x.fillRect(0,0,900,900);
+  [[360,420],[570,455]].forEach(function(p,k){
+    x.fillStyle=k ? "#34465f" : "#8a3f36"; x.beginPath(); x.ellipse(p[0],p[1]+350,200,230,0,0,7); x.fill();
+    x.fillStyle="#2a1f1c"; x.beginPath(); x.arc(p[0],p[1]-20,125,0,7); x.fill();
+    x.fillStyle="#e8bfa4"; x.beginPath(); x.ellipse(p[0],p[1]+15,98,118,0,0,7); x.fill();
+    x.fillStyle="#2a1f1c"; x.fillRect(p[0]-47,p[1]-8,20,20); x.fillRect(p[0]+27,p[1]-8,20,20);
+  });
+  return c;
+}
+$("motionBtns").addEventListener("click", function(e){
+  var b=e.target.closest("[data-motion]"); if(!b) return;
+  var find=function(a){ return a.filter(function(l){ return l.id===b.dataset.motion; })[0]; };
+  var L=find(CFG.layouts) || find(defaultConfig().layouts), shots=[];
+  for (var i=0;i<shotCount(L);i++) shots.push(motionSample(i));
+  renderPrint(L, shots).then(function(blob){ openPrintMotion(L, blob); });
+});
 /* 맥의 인화 서버(instax/relay, POST /print-epson)로 보내 엡손 SC-P904 에서 5×7 무테로 바로 뽑습니다(사용자 요청).
    한 번 보내면 다시 찍기 전까지 막습니다(두 번 눌러 두 장 나가는 것을 막으려는 것). */
 function printEpson(){
