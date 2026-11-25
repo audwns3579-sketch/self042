@@ -8,3 +8,4 @@ DSCF*
 *.jpg
 *.JPEG
 *.jpeg
+!machines/*.jpg

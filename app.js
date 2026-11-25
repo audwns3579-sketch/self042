@@ -2489,11 +2489,47 @@ $("printBtn").addEventListener("click", function(){
   if (relayUrl()){ printEpson(); return; }   // 맥 주소가 있으면 맥이 엡손으로 바로 뽑습니다(인쇄 창 없음)
   if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
 });
+/* ── 인화 모션(사용자 요청) — 인쇄를 누르면 방금 만든 인화 사진이 뽑혀 나오는 화면을 보여줍니다.
+   인생네컷 = 빈티지 부스, 폴라로이드 6컷 = 즉석필름, 흑백 3컷 띠 = 스테인리스 배출구. 카메라 8컷은 없습니다. 모양은 index.html 의 #printMotion.
+   셋 다 마지막에는 실제 인화 사진 색 그대로 보입니다. */
+var PRINT_MOTION = { film8:"vintage", pol6v:"instant", pol6h:"instant", bw3:"steel" };
+var PM_TEXT = { vintage:["현상하는 중입니다","사진이 나왔습니다"], instant:["사진을 뽑는 중입니다","사진이 나왔습니다"], steel:["인화하는 중입니다","사진이 나왔습니다"] };
+/* 기계는 실사 그림(machines/*.jpg, 1920×1088, GPT Image 2.5 Flare 로 만듦)입니다. 그림 위에 사진을 놓고,
+   같은 그림의 윗부분(덮개·윗롤러)을 사진 위에 한 번 더 덮어 사진이 그 아래에서 나오게 합니다.
+   top·h 는 사진이 놓이는 자리(그림 픽셀), 가로 사진은 폭 1040 을 넘지 않게 줄입니다. */
+var PM_GEO = { vintage:{top:226,h:745}, instant:{top:200,h:760}, steel:{top:206,h:772} };
+["vintage","instant","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
+var pmTimers=[], pmUrl=null;
+function openPrintMotion(L){
+  var kind = L && PRINT_MOTION[L.id]; if (!kind || !S.blob) return false;
+  closePrintMotion();
+  var el=$("printMotion"), ratio=L.canvas.w/L.canvas.h, g=PM_GEO[kind];
+  var u=Math.max(innerWidth/1920, innerHeight/1088);   // 그림 1픽셀이 화면 몇 px 인지(화면을 꽉 채움)
+  var h=Math.min(g.h, 1040/ratio), top=g.top+(g.h-h)/2;
+  el.style.setProperty("--u", u+"px"); el.style.setProperty("--ph", (h*u)+"px"); el.style.setProperty("--pw", (h*ratio*u)+"px"); el.style.setProperty("--pt", (top*u)+"px");
+  pmUrl=URL.createObjectURL(S.blob);
+  el.className="pm-"+kind;
+  el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><div class="pm-paper"><div class="pm-sheet">'+
+    '<img class="pm-img" src="'+pmUrl+'" alt="인화 사진"><i class="pm-veil"></i></div></div><i class="pm-front"></i></div><i class="pm-flash"></i>'+
+    '<div class="pm-side"><p class="pm-status" role="status">'+PM_TEXT[kind][0]+'</p><button class="pm-ok" hidden>확인</button></div>';
+  el.hidden=false;
+  el.querySelector(".pm-ok").addEventListener("click", closePrintMotion);
+  pmTimers.push(setTimeout(function(){ el.querySelector(".pm-status").textContent=PM_TEXT[kind][1]; el.querySelector(".pm-ok").hidden=false; }, 8200));
+  pmTimers.push(setTimeout(closePrintMotion, 20000));
+  return true;
+}
+function closePrintMotion(){
+  pmTimers.forEach(clearTimeout); pmTimers=[];
+  var el=$("printMotion"); el.hidden=true; el.innerHTML="";
+  if (pmUrl){ URL.revokeObjectURL(pmUrl); pmUrl=null; }
+}
 /* 맥의 인화 서버(instax/relay, POST /print-epson)로 보내 엡손 SC-P904 에서 5×7 무테로 바로 뽑습니다(사용자 요청).
    한 번 보내면 다시 찍기 전까지 막습니다(두 번 눌러 두 장 나가는 것을 막으려는 것). */
 function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
-  S.printing = true; syncPrintBtn(); say("인화를 보내는 중입니다…", 0);
+  S.printing = true; syncPrintBtn();
+  var motion = openPrintMotion(enabledLayouts()[cur]);   // 모션이 있으면 안내 글 대신 모션을 보여줍니다
+  if (motion) hush(); else say("인화를 보내는 중입니다…", 0);
   // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
   var L = enabledLayouts()[cur], fc = L && frameColor(L);
   var bg = fc ? fc.bg.slice(1) : !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
@@ -2502,9 +2538,10 @@ function printEpson(){
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
       S.printed = true;
-      say("프린터로 보냈습니다. 잠시 뒤 사진이 나옵니다.", 8000);
+      if (!motion) say("프린터로 보냈습니다. 잠시 뒤 사진이 나옵니다.", 8000);
     })
     .catch(function(e){
+      closePrintMotion();
       say("인화를 보내지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인해 주세요.\n("+relayUrl()+" · "+(e && e.message || e)+")", 0);
     })
     .then(function(){ S.printing = false; syncPrintBtn(); });
