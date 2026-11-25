@@ -2594,55 +2594,54 @@ function pmNoise(){
     g.putImageData(d,0,0); return c;
   });
 }
-/* 카메라: 4.95~5.9초에 바닥의 종이로 다가갑니다(z 배, 가운데 cx,cy). 그림 밖이 보이지 않게 자릅니다 */
+/* 카메라: 5.0~5.95초에 바닥의 종이로 다가갑니다(z 배, 가운데 cx,cy). 종이·TV·바닥이 함께 커지고, 그림 밖은 보이지 않게 자릅니다 */
 function pmCam(t){
-  var k=pmEase(pmPart(t,4.95,5.9)), z=1+1.8*k;
-  var cx=960+(921-960)*k, cy=544+(900-544)*k;
-  cx=Math.min(1920-960/z, Math.max(960/z, cx)); cy=Math.min(1088-544/z, Math.max(544/z, cy));
-  if (t>4.78 && t<4.98) cy-=Math.abs(Math.sin((t-4.78)*47))*3*(4.98-t)/.2;   // 툭 떨어질 때 살짝 흔들림
-  return { z:z, cx:cx, cy:Math.min(1088-544/z, cy), k:k };
+  var k=pmEase(pmPart(t,5.0,5.95)), z=Math.pow(3, k);
+  var cx=960+(921-960)*k, cy=544+(995-544)*k;
+  return { z:z, cx:Math.min(1920-960/z, Math.max(960/z, cx)), cy:Math.min(1088-544/z, Math.max(544/z, cy)) };
+}
+/* 맨 아래 TV 의 테이프 덮개: k=0 닫힘, 1 아래로 열려 검은 구멍이 보임 */
+function pmFlap(x, k){
+  if (k<=0) return;
+  var L=819, W=203, T=937, H=29;
+  var g=x.createLinearGradient(0,T,0,T+H); g.addColorStop(0,"#000"); g.addColorStop(1,"#17171a");
+  x.fillStyle=g; x.fillRect(L,T,W,H);
+  // 덮개는 아래 경첩을 축으로 앞으로 눕습니다: 세로가 줄고, 윗면에 빛이 비칩니다
+  var fh=H*(1-k)+9*k, y=T+H-fh+7*k, wide=5*k;
+  var f=x.createLinearGradient(0,y,0,y+fh); f.addColorStop(0, k>.5 ? "#4a4a50" : "#2c2c31"); f.addColorStop(1,"#18181b");
+  x.fillStyle=f; x.beginPath(); x.moveTo(L+2,y+fh-fh); x.lineTo(L+W-2,y); x.lineTo(L+W-2+wide,y+fh); x.lineTo(L+2-wide,y+fh); x.closePath(); x.fill();
+  x.fillStyle="rgba(255,255,255,"+(.28*k).toFixed(3)+")"; x.fillRect(L+2-wide, y+fh-1.5, W-4+wide*2, 1.5);
 }
 function pmTv(x, t, img){
-  var frame=Math.floor(t*18);
   var sw=262, sh=sw*img.height/img.width, first=PM_TV[0].y, end=PM_TV[2].y+PM_TV[2].h;
-  // 인화지의 위쪽 끝 위치: 처음엔 위 TV 화면 위에 숨어 있다가(아래쪽 끝부터 보임) 맨 아래 TV 밑으로 빠집니다
-  var run=pmKeys(t,[[.45,0],[1.1,.24],[1.2,.245],[1.9,.49],[2.0,.495],[2.7,.74],[2.8,.745],[3.45,1]]);
+  // 인화지의 위쪽 끝 위치: 위 TV 화면 위에 숨어 있다가 아래쪽 끝부터 보이고, 한 번에 스르륵 맨 아래 TV 밑으로 빠집니다
+  var run=pmEase(pmPart(t,.35,3.35))*.5 + pmPart(t,.35,3.35)*.5;
   var py=first-sh+(end-first+sh)*run;
   PM_TV.forEach(function(s,i){
-    if (t<.2+i*.07) return;
     x.save();
     x.beginPath(); x.moveTo(s.x+14,s.y+4); x.quadraticCurveTo(s.x+s.w/2,s.y-3,s.x+s.w-14,s.y+4); x.quadraticCurveTo(s.x+s.w+1,s.y+s.h/2,s.x+s.w-10,s.y+s.h-4);
     x.quadraticCurveTo(s.x+s.w/2,s.y+s.h+3,s.x+10,s.y+s.h-4); x.quadraticCurveTo(s.x-1,s.y+s.h/2,s.x+14,s.y+4); x.clip();
+    x.globalAlpha=pmPart(t,.1+i*.06,.45+i*.06);
     x.fillStyle="#1b2230"; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
-    x.globalAlpha=.22; x.drawImage(pm.noise[(frame+i)%3], s.x-4, s.y-6+(frame%3), s.w+8, s.h+12); x.globalAlpha=1;
-    if (run>0 && py<s.y+s.h && py+sh>s.y){
-      var jit=run<1 ? (Math.random()-.5)*2.4 : 0;
-      x.globalAlpha=.96; x.drawImage(img, s.x+(s.w-sw)/2+jit, py, sw, sh); x.globalAlpha=1;
-    }
-    x.fillStyle="rgba(0,0,0,.18)"; for (var y=s.y-2+(frame%2)*2; y<s.y+s.h; y+=4) x.fillRect(s.x-4,y,s.w+8,1.5);   // 주사선
-    var gl=x.createRadialGradient(s.x+s.w*.5,s.y+s.h*.5,20,s.x+s.w*.5,s.y+s.h*.5,s.w*.72); gl.addColorStop(0,"rgba(255,255,255,.04)"); gl.addColorStop(1,"rgba(0,0,0,.42)");
+    x.globalAlpha*=.09; x.drawImage(pm.noise[i], s.x-4, s.y-6, s.w+8, s.h+12); x.globalAlpha=1;   // 움직이지 않는 은은한 질감
+    if (run>0 && run<1) x.drawImage(img, s.x+(s.w-sw)/2, py, sw, sh);
+    var gl=x.createRadialGradient(s.x+s.w*.5,s.y+s.h*.5,20,s.x+s.w*.5,s.y+s.h*.5,s.w*.72); gl.addColorStop(0,"rgba(255,255,255,.04)"); gl.addColorStop(1,"rgba(0,0,0,.4)");
     x.fillStyle=gl; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
     x.restore();
   });
-  if (t<3.4) return;
-  var slotY=951, pw=164, ph=pw*img.height/img.width, cam=pmCam(t), release=4.5, land=release+.28;
+  pmFlap(x, pmEase(pmPart(t,3.3,3.65)));
+  if (t<3.65) return;
+  // 열린 구멍에서 스르륵 나와, 놓이면 바닥에 툭. 바닥에 닿은 뒤로는 종이의 크기와 모양이 바뀌지 않고 카메라만 다가갑니다
+  var cam=pmCam(t), mouth=943, pw=164, vh=76, release=4.5, land=release+.3;
+  var W2=190, H2=150, rest=1072-H2;
   if (t<release){
-    // 테이프 구멍에서 드르륵: 앞으로 나오는 종이라 세로가 눌려 보입니다
-    var f=pmKeys(t,[[3.45,0],[3.75,.34],[3.85,.345],[4.12,.68],[4.22,.685],[4.45,1]]), vh=70;
-    pmPaper(x, img, { w:pw, h:vh, cx:921, top:slotY-vh+f*vh, free:slotY, t:t, freq:2, amp:0, clip:function(){ return slotY; }, shadow:.4, slotShade:1 });
+    var f=pmEase(pmPart(t,3.65,4.45));
+    pmPaper(x, img, { w:pw, h:vh, cx:921, top:mouth-vh+f*vh, free:mouth, t:t, freq:1, amp:0, clip:function(){ return mouth; }, shadow:.4*cam.z, slotShade:1 });
     return;
   }
-  // 구멍에서 놓여 바닥으로 툭. 크기는 거의 그대로이고, 카메라가 다가가며 내려다보는 각도가 됩니다(눌림이 펴짐)
-  var fall=pmPart(t,release,land), flat=70+14*fall;
-  var w1=pw+36*fall, h1=flat+(162-flat)*cam.k;
-  var restTop=1030-84, top=pmFall(t, release, .28, slotY, restTop, 13) + (1074-162-restTop)*cam.k;
-  pmPaper(x, img, { w:w1, h:h1, cx:921, top:top, free:top, t:t, freq:2, amp:0,
-    tilt:-.09*fall + pmRattle(t,land,.035), persp:.3-.14*cam.k, shadow:t<land ? .9 : .3 });
-  var dust=pmPart(t,land,land+.5);
-  if (dust>0 && dust<1){
-    x.fillStyle="rgba(150,140,128,"+(.3*(1-dust)).toFixed(3)+")";
-    for (var d=0;d<14;d++){ var an=d/14*Math.PI*2; x.beginPath(); x.ellipse(921+Math.cos(an)*(108+60*dust), 1022+Math.sin(an)*(22+14*dust)-8*dust*(d%3), 5+12*dust, 3+6*dust, 0,0,7); x.fill(); }
-  }
+  var fall=pmPart(t,release,land), top=pmFall(t, release, .3, mouth, rest, 6);
+  pmPaper(x, img, { w:pw+(W2-pw)*fall, h:vh+(H2-vh)*fall, cx:921, top:top, free:top, t:t, freq:1, amp:0,
+    tilt:-.07*fall, persp:.2*fall, shadow:(.45-.2*fall)*cam.z });
 }
 var PM_DRAW = { tv:pmTv, printer:pmPrinter, steel:pmSteel };
 
