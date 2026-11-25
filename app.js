@@ -2459,9 +2459,10 @@ $("flipBtn").addEventListener("click", function(){
   S.facing = S.facing==="user" ? "environment" : "user";
   openCamera().then(applyPreviewFilter).catch(function(e){ say(cameraError(e)); });
 });
-$("againBtn").addEventListener("click", function(){
+function goHome(){
   S.blob=null; freeCanvases(S.shots); S.shots=[]; keepResult(null); hush(); readyMode(true); show(setupEl);
-});
+}
+$("againBtn").addEventListener("click", goHome);
 /* 좌우 반전 — 손님이 고른 사진을 남겨 두었다가 칸 안의 사진만 뒤집어 다시 만듭니다(손님 요청).
    인화를 보낸 뒤에는 막습니다(다시 만들면 인화를 한 번 더 할 수 있게 되므로). */
 function keepResult(L, shots, look){
@@ -2489,40 +2490,188 @@ $("printBtn").addEventListener("click", function(){
   if (relayUrl()){ printEpson(); return; }   // 맥 주소가 있으면 맥이 엡손으로 바로 뽑습니다(인쇄 창 없음)
   if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
 });
-/* ── 인화 모션(사용자 요청) — 인쇄를 누르면 방금 만든 인화 사진이 뽑혀 나오는 화면을 보여줍니다.
-   인생네컷 = 빈티지 부스, 폴라로이드 6컷 = 즉석필름, 흑백 3컷 띠 = 스테인리스 배출구. 카메라 8컷은 없습니다. 모양은 index.html 의 #printMotion.
-   셋 다 마지막에는 실제 인화 사진 색 그대로 보입니다. */
-var PRINT_MOTION = { film8:"vintage", pol6v:"instant", pol6h:"instant", bw3:"steel" };
-var PM_TEXT = { vintage:["현상하는 중입니다","사진이 나왔습니다"], instant:["사진을 뽑는 중입니다","사진이 나왔습니다"], steel:["인화하는 중입니다","사진이 나왔습니다"] };
-/* 기계는 실사 그림(machines/*.jpg, 1920×1088, GPT Image 2.5 Flare 로 만듦)입니다. 그림 위에 사진을 놓고,
-   같은 그림의 윗부분(덮개·윗롤러)을 사진 위에 한 번 더 덮어 사진이 그 아래에서 나오게 합니다.
-   top·h 는 사진이 놓이는 자리(그림 픽셀), 가로 사진은 폭 1040 을 넘지 않게 줄입니다. */
-var PM_GEO = { vintage:{top:226,h:745}, instant:{top:200,h:760}, steel:{top:206,h:772} };
-["vintage","instant","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
-var pmTimers=[], pmUrl=null;
-function openPrintMotion(L, blob){
+/* ── 인화 모션(사용자 요청) — 인쇄를 누르면 방금 만든 인화 사진이 뽑혀 나오는 화면을 6초 동안 보여줍니다.
+   인생네컷 = CRT TV 3대(화면에 위에서부터 찍히고 맨 아래 TV 테이프 구멍에서 나와 바닥에 툭), 폴라로이드 6컷 = 프린터에서 휙 휘날리며,
+   흑백 3컷 띠 = 스테인리스 롤러 배출구. 카메라 8컷은 없습니다. 기계는 실사 그림(machines/*.jpg, 1920×1088, GPT Image 2.5 Flare)이고,
+   종이는 캔버스에 얇게 잘라 그려서 휘고 팔랑거립니다. 가로 인화(폴라로이드 가로)는 실제 용지 방향대로 세로로 돌려(얼굴 위쪽이 오른쪽) 뽑습니다.
+   인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
+var PRINT_MOTION = { film8:"tv", pol6v:"printer", pol6h:"printer", bw3:"steel" };
+var PM_SEC = 6, PM_HOME_MS = 5000;
+["tv","printer","steel"].forEach(function(n){ new Image().src="machines/"+n+".jpg"; });   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
+var pm=null;   // 지금 재생 중인 모션
+
+function pmClamp(v){ return v<0 ? 0 : v>1 ? 1 : v; }
+function pmPart(t, a, b){ return pmClamp((t-a)/(b-a)); }
+function pmEase(k){ return k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2; }
+/* 점들([시각, 값])을 이어 읽습니다 */
+function pmKeys(t, a){
+  if (t<=a[0][0]) return a[0][1];
+  for (var i=1;i<a.length;i++) if (t<=a[i][0]) return a[i-1][1]+(a[i][1]-a[i-1][1])*pmEase((t-a[i-1][0])/(a[i][0]-a[i-1][0]));
+  return a[a.length-1][1];
+}
+/* 종이 한 장. img 를 가로 w·세로 h 로, 위 가운데를 (cx, top) 에 놓고 얇은 띠로 잘라 휘게 그립니다(좌표는 기계 그림 픽셀).
+   amp = 팔랑거림 크기(px), persp = 위가 좁아지는 정도(바닥에 누운 느낌), tilt = 기울기, clip = 이 선 아래만 보이기(배출구) */
+function pmPaper(x, img, o){
+  var N=90, w=o.w, h=o.h, pts=[], i;
+  for (i=0;i<=N;i++){
+    var v=i/N, s=pmClamp((o.top+v*h-o.free)/h);           // 배출구에서 멀수록(자유로운 끝) 많이 흔들립니다
+    var ph=Math.PI*2*(v*1.15 - o.t*o.freq);
+    var a=o.amp*Math.pow(s,1.35);
+    var dx=a*Math.sin(ph) + o.amp*.55*s*s*Math.sin(o.t*7.3);
+    var wz=1 + (a/w)*.9*Math.cos(ph) - (o.persp||0)*(1-v);  // 앞으로 부푼 곳은 넓게
+    var dy=a*.28*Math.cos(ph);
+    pts.push({ y:o.top+v*h+dy, cx:o.cx+dx, hw:w*wz/2, sh:Math.cos(ph)*pmClamp(a/22) });
+  }
+  x.save();
+  if (o.clip!==undefined){ x.beginPath(); x.moveTo(0,o.clip(0)); x.lineTo(1920,o.clip(1920)); x.lineTo(1920,1100); x.lineTo(0,1100); x.closePath(); x.clip(); }
+  if (o.tilt){ x.translate(o.cx,o.free); x.rotate(o.tilt); x.translate(-o.cx,-o.free); }
+  function outline(){
+    x.beginPath(); x.moveTo(pts[0].cx-pts[0].hw, pts[0].y);
+    for (var k=0;k<=N;k++) x.lineTo(pts[k].cx+pts[k].hw, pts[k].y);
+    for (var m=N;m>=0;m--) x.lineTo(pts[m].cx-pts[m].hw, pts[m].y);
+    x.closePath();
+  }
+  // 그림자: 종이가 많이 뜰수록 멀고 흐리게
+  var lift=o.shadow===undefined ? 1 : o.shadow;
+  x.save(); x.shadowColor="rgba(0,0,0,.55)"; x.shadowBlur=(18+o.amp*.5)*pm.k*lift; x.shadowOffsetX=(8+o.amp*.25)*pm.k*lift; x.shadowOffsetY=(14+o.amp*.3)*pm.k*lift;
+  outline(); x.fillStyle="#f4f2ee"; x.fill(); x.restore();
+  outline(); x.clip();
+  for (i=0;i<N;i++){
+    var p=pts[i], q=pts[i+1], mx=(p.cx+q.cx)/2, hw=Math.max(p.hw,q.hw)+1, hh=q.y-p.y+1.6;
+    x.drawImage(img, 0, i*img.height/N, img.width, img.height/N, mx-hw, p.y-.3, hw*2, hh);
+  }
+  // 휨에 따른 밝기: 한 번에 부드러운 그라데이션으로
+  var gr=x.createLinearGradient(0,pts[0].y,0,pts[N].y);
+  for (i=0;i<=N;i+=6){ var sh=pts[i].sh; gr.addColorStop(i/N, sh>0 ? "rgba(255,255,255,"+(sh*.17).toFixed(3)+")" : "rgba(0,0,0,"+(-sh*.3).toFixed(3)+")"); }
+  x.fillStyle=gr; x.fillRect(0,pts[0].y-60,1920,pts[N].y-pts[0].y+120);
+  if (o.warm>0){ x.globalCompositeOperation="multiply"; x.fillStyle="rgba(243,185,121,"+(o.warm*.55).toFixed(3)+")"; x.fillRect(0,-100,1920,1300); x.globalCompositeOperation="source-over"; }
+  if (o.slotShade){ var g2=x.createLinearGradient(0,o.free,0,o.free+90); g2.addColorStop(0,"rgba(0,0,0,"+(o.slotShade*.6).toFixed(3)+")"); g2.addColorStop(1,"rgba(0,0,0,0)"); x.fillStyle=g2; x.fillRect(0,o.free-40,1920,130); }
+  x.restore();
+}
+
+/* 흑백 3컷: 롤러 사이에서 거의 일정하게 밀려 나와 받이에 내려앉습니다 */
+function pmSteel(x, t, img){
+  var h=772, w=h*img.width/img.height, slot=203;
+  var f=pmKeys(t,[[.2,0],[1.0,.16],[1.15,.165],[1.9,.34],[2.05,.345],[2.8,.52],[2.95,.525],[3.7,.7],[3.85,.705],[4.9,1]]);
+  var drop=t<4.9 ? -26 : -26 + pmKeys(t,[[4.9,0],[5.25,34],[5.55,20],[6,26]]);
+  var calm=Math.exp(-Math.max(0,t-4.9)*3.2);
+  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+3)+drop*f, free:slot, t:t, freq:1.5, amp:(t<4.9 ? 17 : 26*calm)*pmClamp(f*3),
+    clip:function(){ return slot; }, warm:1-pmPart(t,5,6), slotShade:1-pmPart(t,5.2,6) });
+}
+/* 폴라로이드: 조금씩 내밀다가 휙 휘날리며 받이 위로 */
+function pmPrinter(x, t, img){
+  var h=770, w=h*img.width/img.height;
+  var line=function(px){ return 135 + px*.077; }, slot=line(960);
+  var f=pmKeys(t,[[.2,0],[.9,.13],[1.25,.13],[1.9,.24],[2.3,.25],[2.7,.33],[3.0,.34],[3.75,1.06],[4.25,.985],[4.8,1.008],[5.4,1]]);
+  var wild=pmKeys(t,[[0,5],[2.9,8],[3.35,92],[3.9,66],[4.6,24],[5.4,6],[6,0]]);
+  var tilt=pmKeys(t,[[0,.075],[2.9,.075],[3.5,-.075],[4.1,.065],[4.8,.012],[5.5,.04],[6,.035]]);
+  pmPaper(x, img, { w:w, h:h, cx:960, top:slot-h+f*(h+34), free:slot, t:t, freq:t>2.9 ? 2.4 : 1.4, amp:wild*pmClamp(f*3), tilt:tilt,
+    clip:line, shadow:1+pmKeys(t,[[2.9,0],[3.4,1.2],[5.4,.1],[6,0]]), slotShade:1-pmPart(t,4.6,5.6) });
+}
+/* 인생네컷: 위 TV 부터 지직거리며 위에서 아래로 찍히고, 맨 아래 TV 테이프 구멍에서 나와 바닥에 툭 */
+var PM_TV = [ {x:791,y:115,w:262,h:204}, {x:791,y:400,w:264,h:202}, {x:791,y:684,w:263,h:203} ];
+function pmNoise(){
+  return [0,1,2].map(function(){
+    var c=document.createElement("canvas"); c.width=132; c.height=102; var g=c.getContext("2d"), d=g.createImageData(132,102);
+    for (var i=0;i<d.data.length;i+=4){ var v=40+Math.random()*190|0; d.data[i]=v; d.data[i+1]=v+4; d.data[i+2]=v+16; d.data[i+3]=255; }
+    g.putImageData(d,0,0); return c;
+  });
+}
+function pmTv(x, t, img){
+  var frame=Math.floor(t*18);
+  PM_TV.forEach(function(s,i){
+    var on=.25+i*1.05, k=pmPart(t,on+.22,on+1.05);
+    if (t<on) return;
+    x.save();
+    x.beginPath(); x.moveTo(s.x+14,s.y+4); x.quadraticCurveTo(s.x+s.w/2,s.y-3,s.x+s.w-14,s.y+4); x.quadraticCurveTo(s.x+s.w+1,s.y+s.h/2,s.x+s.w-10,s.y+s.h-4);
+    x.quadraticCurveTo(s.x+s.w/2,s.y+s.h+3,s.x+10,s.y+s.h-4); x.quadraticCurveTo(s.x-1,s.y+s.h/2,s.x+14,s.y+4); x.clip();
+    x.fillStyle="#1b2230"; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
+    x.globalAlpha=k<1 ? .85 : .09; x.drawImage(pm.noise[(frame+i)%3], s.x-4, s.y-6+(frame%3), s.w+8, s.h+12); x.globalAlpha=1;
+    if (k>0){
+      // 인화지를 위·가운데·아래로 나눠 한 화면에 한 조각씩
+      var dw=s.w, dh=Math.min(s.h, dw*(img.height/3)/img.width*1.25), dy=s.y+(s.h-dh)/2;
+      var jit=k<1 ? (Math.random()-.5)*5 : 0;
+      x.save(); x.beginPath(); x.rect(s.x-4,s.y-6,s.w+8,(dy-s.y+6)+dh*k); x.clip();
+      x.globalAlpha=k<1 ? .92 : 1; x.drawImage(img, 0, i*img.height/3, img.width, img.height/3, s.x+jit, dy, dw, dh); x.restore(); x.globalAlpha=1;
+      if (k<1){ x.fillStyle="rgba(215,235,255,.85)"; x.fillRect(s.x-4, dy+dh*k-2, s.w+8, 4); }
+    }
+    x.fillStyle="rgba(0,0,0,.2)"; for (var y=s.y-2+(frame%2)*2; y<s.y+s.h; y+=4) x.fillRect(s.x-4,y,s.w+8,1.5);   // 주사선
+    var gl=x.createRadialGradient(s.x+s.w*.5,s.y+s.h*.5,20,s.x+s.w*.5,s.y+s.h*.5,s.w*.72); gl.addColorStop(0,"rgba(255,255,255,.04)"); gl.addColorStop(1,"rgba(0,0,0,.45)");
+    x.fillStyle=gl; x.fillRect(s.x-4,s.y-6,s.w+8,s.h+12);
+    x.restore();
+  });
+  if (t<3.55) return;
+  var slotY=951, sw=164, sh=sw*img.height/img.width;
+  if (t<4.65){
+    // 테이프 구멍에서 드르륵 밀려 나옴
+    var f=pmKeys(t,[[3.55,0],[3.85,.16],[3.95,.16],[4.25,.31],[4.35,.31],[4.65,.47]]);
+    pmPaper(x, img, { w:sw, h:sh, cx:921, top:slotY-sh+f*sh, free:slotY, t:t, freq:2.2, amp:5, clip:function(){ return slotY; }, shadow:.5, slotShade:1 });
+    return;
+  }
+  // 뚝 떨어지며 앞으로 커지고, 바닥에 닿으면 한 번 튕깁니다
+  var k=pmPart(t,4.65,5.3), g=k*k;
+  var bounce=t>5.3 ? -26*Math.abs(Math.sin((t-5.3)*9))*Math.exp(-(t-5.3)*5.5) : 0;
+  var w1=sw+(610-sw)*g, h1=sh*.47+(350-sh*.47)*g;     // 바닥에 누우며 세로는 눌려 보입니다
+  var top=slotY+(722-slotY)*g + bounce - Math.sin(Math.PI*k)*60;
+  pmPaper(x, img, { w:w1, h:h1, cx:921+(1000-921)*g, top:top, free:top, t:t, freq:2.6, amp:26*Math.sin(Math.PI*Math.min(1,k*1.05))+ (t>5.3 ? 14*Math.exp(-(t-5.3)*6) : 0),
+    tilt:-.11*g+.05*Math.sin(Math.PI*k), persp:.34*g, shadow:1.4-g });
+  var dust=pmPart(t,5.3,5.95);
+  if (dust>0 && dust<1){
+    x.fillStyle="rgba(150,140,128,"+(.35*(1-dust)).toFixed(3)+")";
+    for (var d=0;d<18;d++){ var an=d/18*Math.PI*2, rx=300+170*dust, ry=70+60*dust; x.beginPath(); x.ellipse(1000+Math.cos(an)*rx, 1040+Math.sin(an)*ry*.45-30*dust*(d%3), 12+28*dust, 7+14*dust, 0,0,7); x.fill(); }
+  }
+}
+var PM_DRAW = { tv:pmTv, printer:pmPrinter, steel:pmSteel };
+
+/* onHome: 다 됐다는 안내를 5초 보여준 뒤 부릅니다. accepted: 인화를 보내는 데 성공했는지(실패하면 openPrintMotion 을 닫습니다) */
+function openPrintMotion(L, blob, onHome, accepted){
   blob = blob || S.blob;
   var kind = L && PRINT_MOTION[L.id]; if (!kind || !blob) return false;
   closePrintMotion();
-  var el=$("printMotion"), ratio=L.canvas.w/L.canvas.h, g=PM_GEO[kind];
-  var u=Math.max(innerWidth/1920, innerHeight/1088);   // 그림 1픽셀이 화면 몇 px 인지(화면을 꽉 채움)
-  var h=Math.min(g.h, 1040/ratio), top=g.top+(g.h-h)/2;
-  el.style.setProperty("--u", u+"px"); el.style.setProperty("--ph", (h*u)+"px"); el.style.setProperty("--pw", (h*ratio*u)+"px"); el.style.setProperty("--pt", (top*u)+"px");
-  pmUrl=URL.createObjectURL(blob);
+  var el=$("printMotion");
   el.className="pm-"+kind;
-  el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><div class="pm-paper"><div class="pm-sheet">'+
-    '<img class="pm-img" src="'+pmUrl+'" alt="인화 사진"><i class="pm-veil"></i></div></div><i class="pm-front"></i></div><i class="pm-flash"></i>'+
-    '<div class="pm-side"><p class="pm-status" role="status">'+PM_TEXT[kind][0]+'</p><button class="pm-ok" hidden>확인</button></div>';
+  el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><canvas class="pm-cv" aria-label="인화 사진이 나오는 모습"></canvas></div><i class="pm-flash"></i>'+
+    '<div class="pm-side"><p class="pm-status" role="status">인화하는 중입니다</p></div>';
   el.hidden=false;
-  el.querySelector(".pm-ok").addEventListener("click", closePrintMotion);
-  pmTimers.push(setTimeout(function(){ el.querySelector(".pm-status").textContent=PM_TEXT[kind][1]; el.querySelector(".pm-ok").hidden=false; }, 8200));
-  pmTimers.push(setTimeout(closePrintMotion, 20000));
+  var cv=el.querySelector(".pm-cv"), u=Math.max(innerWidth/1920, innerHeight/1088), dpr=Math.min(window.devicePixelRatio||1, 1.5);
+  el.style.setProperty("--u", u+"px");
+  cv.width=Math.round(1920*u*dpr); cv.height=Math.round(1088*u*dpr);
+  var me=pm={ ok:!!accepted, done:false, k:u*dpr, url:URL.createObjectURL(blob), noise:kind==="tv" ? pmNoise() : null, raf:0, timer:0, onHome:onHome };
+  var img=new Image();
+  img.onload=function(){
+    if (pm!==me) return;
+    // 가로 인화는 용지 방향대로 세로로 돌립니다(얼굴 위쪽이 오른쪽). 화면 크기에 맞춰 미리 줄여 둡니다
+    var wide=img.width>img.height, iw=wide ? img.height : img.width, ih=wide ? img.width : img.height;
+    var sc=Math.min(1, 1000/ih), paper=document.createElement("canvas"); paper.width=Math.round(iw*sc); paper.height=Math.round(ih*sc);
+    var g=paper.getContext("2d");
+    if (wide){ g.translate(paper.width,0); g.rotate(Math.PI/2); g.drawImage(img,0,0,paper.height,paper.width); }
+    else g.drawImage(img,0,0,paper.width,paper.height);
+    var x=cv.getContext("2d"), t0=performance.now();
+    (function tick(){
+      if (pm!==me) return;
+      var t=(performance.now()-t0)/1000;
+      x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,cv.width,cv.height); x.setTransform(me.k,0,0,me.k,0,0);
+      PM_DRAW[kind](x, Math.min(t,PM_SEC), paper);
+      if (kind==="tv") el.querySelector(".pm-stage").style.marginTop=(t>5.3 && t<5.7 ? (Math.sin((t-5.3)*70)*7*(5.7-t)/.4).toFixed(1) : 0)+"px";
+      if (t>=PM_SEC && me.ok){ pmFinish(); return; }
+      me.raf=requestAnimationFrame(tick);
+    })();
+  };
+  img.src=me.url;
   return true;
 }
+function pmFinish(){
+  var me=pm; if (!me || me.done) return;
+  me.done=true;
+  var el=$("printMotion");
+  el.classList.add("pm-done");
+  el.querySelector(".pm-status").innerHTML="인화가 다 됐습니다.<br>카운터로 이동하세요";
+  me.timer=setTimeout(function(){ var go=me.onHome; if (go) go(); closePrintMotion(); }, PM_HOME_MS);
+}
 function closePrintMotion(){
-  pmTimers.forEach(clearTimeout); pmTimers=[];
   var el=$("printMotion"); el.hidden=true; el.innerHTML="";
-  if (pmUrl){ URL.revokeObjectURL(pmUrl); pmUrl=null; }
+  if (!pm) return;
+  cancelAnimationFrame(pm.raf); clearTimeout(pm.timer); URL.revokeObjectURL(pm.url); pm=null;
 }
 /* 관리자 "인화 모션 보기" — 칸을 색 견본 그림으로 채운 인화지로 모션만 재생합니다. 인화 서버에는 보내지 않습니다 */
 function motionSample(i){
@@ -2541,14 +2690,14 @@ $("motionBtns").addEventListener("click", function(e){
   var find=function(a){ return a.filter(function(l){ return l.id===b.dataset.motion; })[0]; };
   var L=find(CFG.layouts) || find(defaultConfig().layouts), shots=[];
   for (var i=0;i<shotCount(L);i++) shots.push(motionSample(i));
-  renderPrint(L, shots).then(function(blob){ openPrintMotion(L, blob); });
+  renderPrint(L, shots).then(function(blob){ openPrintMotion(L, blob, null, true); });   // 보기: 끝나면 관리자 화면으로
 });
 /* 맥의 인화 서버(instax/relay, POST /print-epson)로 보내 엡손 SC-P904 에서 5×7 무테로 바로 뽑습니다(사용자 요청).
    한 번 보내면 다시 찍기 전까지 막습니다(두 번 눌러 두 장 나가는 것을 막으려는 것). */
 function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
   S.printing = true; syncPrintBtn();
-  var motion = openPrintMotion(enabledLayouts()[cur]);   // 모션이 있으면 안내 글 대신 모션을 보여줍니다
+  var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 모션이 있으면 안내 글 대신 모션을 보여줍니다
   if (motion) hush(); else say("인화를 보내는 중입니다…", 0);
   // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
   var L = enabledLayouts()[cur], fc = L && frameColor(L);
@@ -2558,6 +2707,7 @@ function printEpson(){
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
       S.printed = true;
+      if (motion && pm) pm.ok = true;   // 모션이 끝나면 "다 됐습니다" → 5초 뒤 첫 화면
       if (!motion) say("프린터로 보냈습니다. 잠시 뒤 사진이 나옵니다.", 8000);
     })
     .catch(function(e){

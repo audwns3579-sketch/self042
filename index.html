@@ -441,82 +441,23 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 .filepick{position:relative;overflow:hidden}
 .filepick input[type=file]{position:absolute;inset:0;opacity:0;width:100%;height:100%}
 
-/* ── 인화 모션 (app.js openPrintMotion) — --u 는 기계 그림 1픽셀, --pw/--ph/--pt 는 사진 크기와 놓이는 높이 ── */
+/* ── 인화 모션 (app.js openPrintMotion) — --u 는 기계 그림 1픽셀. 종이는 .pm-cv 캔버스에 그립니다 ── */
 #printMotion{position:fixed;inset:0;z-index:45;overflow:hidden;user-select:none;background:#0d0b0a}
 #printMotion[hidden]{display:none}
 #printMotion i{display:block;font-style:normal;pointer-events:none}
 .pm-stage{position:absolute;left:50%;top:50%;width:calc(1920 * var(--u));height:calc(1088 * var(--u));transform:translate(-50%,-50%)}
-.pm-bg,.pm-front{position:absolute;inset:0;background:center/100% 100% no-repeat}
-.pm-vintage .pm-bg,.pm-vintage .pm-front{background-image:url(machines/vintage.jpg)}
-.pm-instant .pm-bg,.pm-instant .pm-front{background-image:url(machines/instant.jpg)}
-.pm-steel .pm-bg,.pm-steel .pm-front{background-image:url(machines/steel.jpg)}
-/* 윗덮개: 사진이 이 아래에서 나옵니다. 아래 그림자는 덮개가 떠 있는 느낌 */
-.pm-front{z-index:3}
-.pm-vintage .pm-front{clip-path:inset(0 0 calc(100% - 192 * var(--u)) 0)}
-.pm-instant .pm-front{clip-path:inset(0 0 calc(100% - 162 * var(--u)) 0)}
-.pm-steel .pm-front{clip-path:inset(0 0 calc(100% - 203 * var(--u)) 0)}   /* 윗롤러 아랫선 */
-.pm-paper{position:absolute;left:calc((1920 * var(--u) - var(--pw)) / 2);top:var(--pt);width:var(--pw);height:var(--ph);z-index:2;transform-origin:50% 0}
-.pm-sheet{position:relative;width:100%;height:100%;overflow:hidden;background:#f7f5f0}
-.pm-img{display:block;width:100%;height:100%}
-/* 종이 위 빛: 위쪽(덮개 밑)은 어둡고 가운데에 은은한 윤기 */
-.pm-sheet::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.38),rgba(0,0,0,0) 13%),linear-gradient(112deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 66%);animation:pm-fade 1.4s ease 6.6s forwards}
-.pm-veil{position:absolute;inset:0;opacity:0}
+.pm-bg,.pm-cv{position:absolute;inset:0;width:100%;height:100%}
+.pm-bg{background:center/100% 100% no-repeat}
+.pm-tv .pm-bg{background-image:url(machines/tv.jpg)}
+.pm-printer .pm-bg{background-image:url(machines/printer.jpg)}
+.pm-steel .pm-bg{background-image:url(machines/steel.jpg)}
 .pm-flash{position:absolute;inset:0;background:#fff;z-index:11;opacity:0}
-@keyframes pm-fade{to{opacity:0}}
-
-.pm-side{position:absolute;right:3vw;bottom:5vh;z-index:10;display:flex;flex-direction:column;align-items:center;gap:1.6vh;max-width:24vw}
-.pm-status{margin:0;padding:1.2vh 2.2vh;border-radius:999px;background:rgba(12,10,9,.72);color:#fff;font-size:clamp(18px,2.4vh,28px);white-space:nowrap}
-.pm-ok{min-width:200px;height:6.6vh;min-height:48px;border-radius:999px;border:0;background:#fff;color:#111;font:inherit;font-size:20px;box-shadow:0 6px 20px rgba(0,0,0,.45)}
-.pm-ok[hidden]{display:none}
-
-/* 1) 빈티지 부스 — 인생네컷: 톱니처럼 끊기며 나오고, 누렇게 바랜 상태에서 현상 */
-.pm-vintage .pm-paper{box-shadow:0 calc(14 * var(--u)) calc(30 * var(--u)) rgba(0,0,0,.65),0 2px 4px rgba(0,0,0,.5);
-  transform:translateY(calc(-1 * (var(--pt) + var(--ph))));animation:pm-v-out 5.2s linear .5s forwards, pm-v-settle .9s cubic-bezier(.2,.7,.3,1) 5.7s forwards}
-@keyframes pm-v-out{
-  0%{transform:translateY(calc(-1 * (var(--pt) + var(--ph))))}
-  9%{transform:translateY(calc(-.9 * (var(--pt) + var(--ph))))}14%{transform:translateY(calc(-.905 * (var(--pt) + var(--ph))))}
-  23%{transform:translateY(calc(-.76 * (var(--pt) + var(--ph))))}28%{transform:translateY(calc(-.765 * (var(--pt) + var(--ph))))}
-  38%{transform:translateY(calc(-.61 * (var(--pt) + var(--ph))))}43%{transform:translateY(calc(-.615 * (var(--pt) + var(--ph))))}
-  54%{transform:translateY(calc(-.45 * (var(--pt) + var(--ph))))}59%{transform:translateY(calc(-.455 * (var(--pt) + var(--ph))))}
-  70%{transform:translateY(calc(-.29 * (var(--pt) + var(--ph))))}75%{transform:translateY(calc(-.295 * (var(--pt) + var(--ph))))}
-  86%{transform:translateY(calc(-.13 * (var(--pt) + var(--ph))))}90%{transform:translateY(calc(-.135 * (var(--pt) + var(--ph))))}
-  100%{transform:translateY(calc(-14 * var(--u)))}}
-@keyframes pm-v-settle{0%{transform:translateY(calc(-14 * var(--u)))}40%{transform:translateY(calc(7 * var(--u))) rotate(.9deg)}70%{transform:translateY(0) rotate(-.4deg)}100%{transform:translateY(0) rotate(.25deg)}}
-.pm-vintage .pm-img{filter:sepia(1) brightness(1.9) contrast(.3);animation:pm-v-dev 5.8s ease-in 2.2s forwards}
-@keyframes pm-v-dev{0%{filter:sepia(1) brightness(1.9) contrast(.3)}45%{filter:sepia(.95) brightness(1.3) contrast(.72)}75%{filter:sepia(.55) brightness(1.06) contrast(.96)}100%{filter:sepia(0) brightness(1) contrast(1)}}
-.pm-vintage .pm-bg,.pm-vintage .pm-front{animation:pm-v-lamp .21s steps(2) 26}
-@keyframes pm-v-lamp{50%{filter:brightness(1.07)}}
-
-/* 2) 즉석필름 — 폴라로이드 6컷: 플래시 뒤에 위에서 스르륵 내려와 트레이에 놓이고, 뿌연 막이 걷히며 현상 */
-.pm-instant .pm-flash{animation:pm-i-flash .7s ease-out .15s}
-@keyframes pm-i-flash{8%{opacity:.95}100%{opacity:0}}
-.pm-instant .pm-paper{box-shadow:0 calc(3 * var(--u)) calc(6 * var(--u)) rgba(0,0,0,.28),0 calc(18 * var(--u)) calc(34 * var(--u)) rgba(0,0,0,.22);
-  transform:translateY(calc(-1 * (var(--pt) + var(--ph))));animation:pm-i-slide 3.1s cubic-bezier(.45,.05,.2,1) .9s forwards}
-@keyframes pm-i-slide{
-  0%{transform:translateY(calc(-1 * (var(--pt) + var(--ph))))}
-  30%{transform:translateY(calc(-.74 * (var(--pt) + var(--ph))))}38%{transform:translateY(calc(-.75 * (var(--pt) + var(--ph))))}
-  82%{transform:translateY(calc(12 * var(--u))) rotate(-1deg)}92%{transform:translateY(calc(-3 * var(--u))) rotate(.35deg)}100%{transform:translateY(0) rotate(0)}}
-.pm-instant .pm-veil{background:linear-gradient(155deg,#5b6d70,#97a5a6 55%,#6c7d80);opacity:.94;animation:pm-i-veil 4.4s ease-in 3.4s forwards}
-@keyframes pm-i-veil{45%{opacity:.62}100%{opacity:0}}
-.pm-instant .pm-img{filter:blur(7px) saturate(.25) brightness(1.4);animation:pm-i-dev 4.6s ease-in-out 3.4s forwards}
-@keyframes pm-i-dev{50%{filter:blur(3px) saturate(.5) brightness(1.18)}100%{filter:blur(0) saturate(1) brightness(1)}}
-
-/* 3) 스테인리스 배출구 — 흑백 3컷 띠: 롤러 사이에서 일정한 속도로 밀려 나와 받이에 톡 내려앉습니다 */
-.pm-steel .pm-paper{box-shadow:calc(10 * var(--u)) calc(16 * var(--u)) calc(30 * var(--u)) rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.45);
-  transform:translateY(calc(-1 * (var(--pt) + var(--ph))));animation:pm-s-feed 6.4s linear .6s forwards, pm-s-drop 1.1s cubic-bezier(.3,.6,.35,1) 7s forwards}
-/* 롤러가 돌며 밀어내는 느낌: 거의 일정하게, 아주 살짝씩 멈칫합니다 */
-@keyframes pm-s-feed{
-  0%{transform:translateY(calc(-1 * (var(--pt) + var(--ph))))}
-  16%{transform:translateY(calc(-.83 * (var(--pt) + var(--ph))))}18%{transform:translateY(calc(-.822 * (var(--pt) + var(--ph))))}
-  33%{transform:translateY(calc(-.66 * (var(--pt) + var(--ph))))}35%{transform:translateY(calc(-.652 * (var(--pt) + var(--ph))))}
-  50%{transform:translateY(calc(-.49 * (var(--pt) + var(--ph))))}52%{transform:translateY(calc(-.482 * (var(--pt) + var(--ph))))}
-  67%{transform:translateY(calc(-.32 * (var(--pt) + var(--ph))))}69%{transform:translateY(calc(-.312 * (var(--pt) + var(--ph))))}
-  84%{transform:translateY(calc(-.16 * (var(--pt) + var(--ph))))}86%{transform:translateY(calc(-.152 * (var(--pt) + var(--ph))))}
-  100%{transform:translateY(calc(-22 * var(--u)))}}
-@keyframes pm-s-drop{0%{transform:translateY(calc(-22 * var(--u)))}45%{transform:translateY(calc(5 * var(--u))) rotate(.7deg)}70%{transform:translateY(calc(-4 * var(--u))) rotate(-.35deg)}100%{transform:translateY(0) rotate(0)}}
-/* 종이에 비치는 따뜻한 조명. 다 나오면 걷혀 실제 인화 색이 보입니다 */
-.pm-steel .pm-veil{background:linear-gradient(100deg,#ffd9a0,#f3b979 55%,#a97c55);mix-blend-mode:multiply;opacity:.55;animation:pm-fade 1.4s ease 7s forwards}
-.pm-steel .pm-sheet::after{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0) 9%),linear-gradient(100deg,rgba(255,232,190,.22),transparent 30%,transparent 72%,rgba(0,0,0,.16));animation:pm-fade 1.4s ease 7s forwards}
+.pm-side{position:absolute;right:3vw;bottom:5vh;z-index:10;max-width:30vw}
+.pm-status{margin:0;padding:1.4vh 2.6vh;border-radius:999px;background:rgba(12,10,9,.74);color:#fff;font-size:clamp(18px,2.4vh,28px);text-align:center}
+/* 다 됐을 때: 크게, 오른쪽 가운데 */
+.pm-done .pm-side{bottom:50%;transform:translateY(50%)}
+.pm-done .pm-status{padding:3.4vh 3.2vh;border-radius:3vh;font-size:clamp(24px,3.6vh,44px);font-weight:700;line-height:1.55;word-break:keep-all;box-shadow:0 10px 36px rgba(0,0,0,.4);animation:pm-pop .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pm-pop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
 
 #msg{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));
   transform:translateX(-50%);z-index:60;background:var(--panel);border:1px solid var(--line);
