@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 30,
+    version: 31,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -45,10 +45,10 @@ function defaultConfig(){
       /* 포토샵 "흑백 3컷 띠 5x7.jsx" 와 같은 숫자입니다. 5×7 세로, 검은 띠(#202020) 2줄 × 흑백 사진 3칸.
          띠 폭 750, 사진 644 × 666, 양옆 테 53, 위아래 테 31, 사진 사이 20 (31 + 666×3 + 20×2 + 31 = 2100), 모서리 둥글기 16.
          예전엔 두 줄에 같은 사진 3장이 들어갔는데, 6칸 모두 다른 사진으로 바꿨습니다(사용자 요청, 8장 찍고 6장 고르기).
-         가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 색은 손님이 원본·흑백(흑백 띠 "bwstrip") 중에 고릅니다(looks). */
+         가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 색은 손님이 원본·흑백(다른 프레임과 같은 흑백 "mono") 중에 고릅니다(looks). */
       {
         id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", shots: 8,
-        looks: [ {id:"none", name:"원본"}, {id:"bwstrip", name:"흑백"} ],
+        looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
         canvas: { w:1500, h:2100 },
         frame: null,
         slots: [
@@ -134,8 +134,9 @@ function newFilter(over){
 function defaultFilters(){
   return [
     newFilter({id:"none",   name:"원본"}),
-    // 흑백 = 포토샵 "흑백 05" 색감 표(luts/bw05.js). 인생네컷·폴라로이드 색 고르기에서 원본 바로 옆(사용자 요청)
-    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, lut:BW05_LUT, lutAmount:100}),
+    // 흑백 = 릴스 부스 흑백(하얀 피부·갈색빛 검정·빛 번짐·입자, reelBwInto, 밝기 -5). 예전 포토샵 "흑백 05" 표를 바꿨습니다(사용자 요청).
+    // 인생네컷·폴라로이드·흑백 3컷 색 고르기에서 원본 바로 옆
+    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true}),
     newFilter({id:"bright", name:"화사하게", brightness:105, contrast:101, saturate:108, smooth:55, detail:72}),
     newFilter({id:"soft",   name:"뽀샤시",   brightness:108, contrast:97,  saturate:104, smooth:85, detail:58, fade:14,
                             tint:{color:"#FFD9C2", mode:"soft-light", amount:18}}),
@@ -317,7 +318,17 @@ function migrate(cfg){
     var d3 = defaultConfig().layouts.filter(function(d){ return d.id === "bw3"; })[0];
     cfg.layouts.forEach(function(l){ if (l.id === "bw3"){ l.slots = d3.slots; l.shots = d3.shots; l.looks = d3.looks; delete l.look; } });
   }
-  if (cfg.version >= 8){ cfg.version = 30; return cfg; }
+  // 흑백을 릴스 부스 흑백(reelbw)으로 바꿨습니다(사용자 요청). 흑백 3컷도 같은 흑백을 씁니다. 한 번만
+  if (cfg.version < 31){
+    (cfg.filters || []).forEach(function(f){
+      if (f.id !== "mono") return;
+      f.reelbw = true; delete f.lut; delete f.lutAmount;
+      f.brightness = 100; f.contrast = 100; f.saturate = 100; f.sepia = 0; f.hue = 0; f.fade = 0; f.vignette = 0;
+      if (f.tint) f.tint.amount = 0;
+    });
+    (cfg.layouts || []).forEach(function(l){ if (l.id === "bw3") l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ]; });
+  }
+  if (cfg.version >= 8){ cfg.version = 31; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -1214,6 +1225,66 @@ function slimInto(cv, s){
 /* src(비디오나 캔버스)를 out 크기로 그리고 보정을 입힙니다.
    촬영·비교·실시간 미리보기가 모두 이 함수를 써서 보이는 대로 찍힙니다.
    순서: 색 보정 → 얼굴 줄이기 → 피부 보정 → 색감 덧씌우기 → 먹색 띄우기 */
+/* ── 릴스 부스 흑백(사용자 요청). 맥에서 만든 견본(파이썬)과 같은 계산입니다.
+   ① 빨강·초록을 많이 섞어 피부를 밝게 ② 피부 밝기를 0.71 에 맞춤(플래시로 밝은 부스 사진이 날아가지 않게)
+   ③ 하이키 S 곡선(reelTone) ④ 밝은 곳 빛 번짐 ⑤ 원래 색은 피부에만 12%(볼·입술 분홍기) ⑥ 어두운 쪽 갈색
+   ⑦ 가장자리 어둡게 ⑧ 입자 ⑨ 밝기 -5(사용자 요청). */
+function reelTone(v){
+  v = Math.pow(Math.min(1, v*1.15), 0.85);
+  var s = function(x){ return 1/(1+Math.exp(-(x-0.44)*6.5)); }, s0 = s(0), s1 = s(1);
+  return 0.035 + 0.95*(s(v)-s0)/(s1-s0);
+}
+var REEL_TONE = null;   // reelTone 을 1024 칸 표로(픽셀마다 exp 를 부르지 않게)
+function blurMask(vals, W, H, r){
+  var c=document.createElement("canvas"); c.width=W; c.height=H;
+  var x=c.getContext("2d"), im=x.createImageData(W,H), d=im.data;
+  for (var i=0,j=0;i<vals.length;i++,j+=4){ d[j]=d[j+1]=d[j+2]=vals[i]; d[j+3]=255; }
+  x.putImageData(im,0,0);
+  if (ctxFilterWorks()){
+    var b=document.createElement("canvas"); b.width=W; b.height=H;
+    var bx=b.getContext("2d"); bx.drawImage(c,0,0); bx.filter="blur("+r+"px)"; bx.drawImage(c,0,0); bx.filter="none";
+    d=bx.getImageData(0,0,W,H).data; free(b);
+  }
+  free(c);
+  var out=new Uint8Array(W*H); for (var k=0,m=0;k<out.length;k++,m+=4) out[k]=d[m];
+  return out;
+}
+function reelBwInto(cv){
+  var W=cv.width, H=cv.height; if (!W || !H) return;
+  var ctx=cv.getContext("2d"), im, p;
+  try { im=ctx.getImageData(0,0,W,H); } catch(e){ return; }
+  p=im.data;
+  if (!REEL_TONE){ REEL_TONE=new Float32Array(1024); for (var t=0;t<1024;t++) REEL_TONE[t]=reelTone(t/1023); }
+  var N=W*H, L=new Float32Array(N), sk=new Uint8Array(N), hist=new Uint32Array(256), cnt=0, i, j;
+  for (i=0,j=0;i<N;i++,j+=4){
+    var r=p[j], g=p[j+1], b=p[j+2];
+    L[i]=(r*0.45+g*0.45+b*0.10)/255;
+    if (skinW(r,g,b)>0.5){ sk[i]=255; hist[Math.min(255,L[i]*255|0)]++; cnt++; }
+  }
+  var k=1;
+  if (cnt > N*0.01){
+    for (var h=0,acc=0;h<256;h++){ acc+=hist[h]; if (acc*2>=cnt) break; }
+    k=Math.min(1.2, Math.max(0.75, 0.71/Math.max(0.01, (h+0.5)/255)));
+  }
+  var hi=new Uint8Array(N);
+  for (i=0;i<N;i++){ var v=REEL_TONE[Math.min(1023, Math.min(1, L[i]*k)*1023|0)]; L[i]=v; hi[i]=v>0.6 ? Math.min(255,(v-0.6)/0.4*255) : 0; }
+  var hb=blurMask(hi, W, H, W/60), sb=blurMask(sk, W, H, W/200);
+  var cx=W/2, cy=H/2;
+  for (i=0,j=0;i<N;i++,j+=4){
+    var l=1-(1-L[i])*(1-hb[i]/255*0.22);
+    var keep=0.12*sb[i]/255, m=(p[j]+p[j+1]+p[j+2])/765 || 1e-3;
+    var sh=(1-l)*(1-l), x=(i%W-cx)/cx, y=((i/W|0)-cy)/cy, rr=Math.sqrt(x*x+y*y);
+    var vg=1-0.35*Math.min(1, Math.max(0, rr-0.55));
+    var gr=(Math.random()+Math.random()+Math.random()-1.5)*0.07*(0.5+0.5*(1-l));
+    var o=[0.06,0.03,0];
+    for (var c=0;c<3;c++){
+      var col=Math.min(1, p[j+c]/255/m*l);
+      var v2=(l*(1-keep)+col*keep + sh*o[c])*vg + gr;
+      p[j+c]=Math.max(0, Math.min(255, v2*0.95*255));
+    }
+  }
+  ctx.putImageData(im,0,0);
+}
 /* 이미 그려진 캔버스에 색 보정만 입힙니다(drawLook 의 피부만 보정 때) */
 function colorInto(cv, f){
   var ctx=cv.getContext("2d"), css=colorCss(f);
@@ -1243,6 +1314,7 @@ function drawLook(out, src, f, mirror, slim){
   slimInto(out, slim);
   softenInto(out, out, f);
   if (pre) colorInto(out, f);
+  if (f.reelbw) reelBwInto(out);
   overlayInto(ox, W, H, f);
   lutInto(out, f);        // 가져온 색감 파일(*.cube *.xmp *.acv)
 }
@@ -1654,7 +1726,7 @@ function drawFilmText(ctx, L){
    같은 사진·같은 색감·같은 칸 크기면 다시 안 만듭니다. */
 function lookKey(f){
   return [f.id,f.brightness,f.contrast,f.saturate,f.sepia,f.hue,f.smooth,f.detail,f.fade,f.vignette,
-          f.tint ? f.tint.color+f.tint.mode+f.tint.amount : "", f.lut ? f.lut.id : "", f.lutAmount].join("|");
+          f.tint ? f.tint.color+f.tint.mode+f.tint.amount : "", f.lut ? f.lut.id : "", f.lutAmount, f.reelbw ? "rb" : ""].join("|");
 }
 function lookCanvas(src, f, w, h){
   w=Math.max(1,Math.round(w)); h=Math.max(1,Math.round(h));
