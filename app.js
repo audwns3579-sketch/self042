@@ -401,6 +401,13 @@ function migrate(cfg){
     cfg.layouts = cfg.layouts.filter(function(l){ return l.id !== "wl4" && l.id !== "wp4"; });
     cfg.layouts.forEach(function(l){ if (l.instax) l.shots = 4; });
   }
+  // "원본"(none)은 늘 손대지 않은 사진이고 보정 목록 맨 앞입니다. PC 에서 원본이 빠지거나 값이 바뀌어
+  // 원본·인스탁스가 흑백으로 나온 적이 있습니다(2026-11-26, 사용자 요청). 켤 때마다 기본값으로 되돌립니다. 다른 보정은 그대로 둡니다
+  if (Array.isArray(cfg.filters) && cfg.filters.length){
+    var nIdx = cfg.filters.map(function(f){ return f.id; }).indexOf("none");
+    if (nIdx >= 0) cfg.filters.splice(nIdx, 1);
+    cfg.filters.unshift(defaultFilters()[0]);
+  }
   if (cfg.version >= 8){ cfg.version = 33; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
