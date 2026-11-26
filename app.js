@@ -1634,6 +1634,7 @@ function postDrive(o){
 function showQr(blob, sub, origs, plain){
   var box=$("qrBox"), img=$("qrImg"), note=$("qrNote");
   if (!DRIVE_URL){ box.hidden=true; return; }
+  S.qrOk=false; syncPrintBtn();   // 새 QR 이 뜰 때까지 인화 버튼을 막습니다
   box.hidden=false; img.innerHTML=""; note.textContent="QR 을 만드는 중입니다…";
   var up = Promise.all([loadQrLib(), blobBase64(blob)]).then(function(r){
     return postDrive({ img:r[1], folder:sub });
@@ -1656,6 +1657,7 @@ function showQr(blob, sub, origs, plain){
     var q=qrcode(0, "M"); q.addData(id ? "https://drive.google.com/uc?export=view&id="+id : j.url); q.make();
     img.innerHTML=q.createSvgTag({ cellSize:5, margin:2 });
     note.textContent="휴대폰 카메라로 찍으면 사진을 받을 수 있습니다 (2일 동안)";
+    S.qrOk=true; syncPrintBtn();
   }).catch(function(e){
     if (S.blob !== blob) return;
     note.textContent="QR 을 만들지 못했습니다. 인터넷 연결을 확인해 주세요. ("+(e && e.message || e)+")";
@@ -2604,10 +2606,11 @@ $("printBtn").addEventListener("click", function(){
 });
 /* ── 인화 모션(사용자 요청) — 인쇄를 누르면 방금 만든 인화 사진이 뽑혀 나오는 화면을 6초 동안 보여줍니다.
    폴라로이드 6컷 = 흰 종이가 나오는 프린터 실물 영상(machines/printer.mp4, AI 로 만듦)의 종이 위에 손님 인화물을 프레임마다 입힙니다.
-   인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷은 없습니다.
+   인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷·인스탁스도 지금은 스테인리스를 씁니다.
    가로 인화(폴라로이드 가로)는 실제 용지 방향대로 세로로 돌려(얼굴 위쪽이 오른쪽) 뽑습니다.
    인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
-var PRINT_MOTION = { film8:"steel", pol6v:"printer", pol6h:"printer", bw3:"steel" };
+// 카메라 8컷·인스탁스 와이드도 모션을 보여줍니다(사용자 요청, 모든 프레임). 새 즉석카메라 모션을 만들기 전까지는 스테인리스 배출구를 씁니다
+var PRINT_MOTION = { film8:"steel", pol6v:"printer", pol6h:"printer", bw3:"steel", cam8:"steel", wl1:"steel", wl2:"steel", wp1:"steel", wp2:"steel" };
 var PM_SEC = 6, PM_HOME_MS = 5000;
 new Image().src="machines/steel.jpg";   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
 var pm=null;   // 지금 재생 중인 모션
@@ -2717,7 +2720,7 @@ function openPrintMotion(L, blob, onHome, accepted){
   var el=$("printMotion");
   el.className="pm-"+kind;
   el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><canvas class="pm-cv" aria-label="인화 사진이 나오는 모습"></canvas></div><i class="pm-flash"></i>'+
-    '<div class="pm-side"><p class="pm-status" role="status">인화하는 중입니다</p></div>';
+    '<div class="pm-side"><p class="pm-status" role="status">인화 중입니다.<br>카운터로 이동해 주세요</p></div>';
   el.hidden=false;
   var cv=el.querySelector(".pm-cv"), u=Math.max(innerWidth/1920, innerHeight/1088), dpr=Math.min(window.devicePixelRatio||1, 1.5);
   el.style.setProperty("--u", u+"px");
@@ -2841,17 +2844,21 @@ function printInstax(){
   if (!S.blob || S.printing || S.printed) return;
   var url = relayUrl();
   if (!url){ say("관리자 화면에 인화 맥 주소를 넣어주세요.", 6000); return; }
-  S.printing = true; syncPrintBtn(); say("인화하는 중입니다…", 0);
+  S.printing = true; syncPrintBtn();
+  var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 엡손과 같이 인화 모션 → 다 되면 5초 뒤 첫 화면(사용자 요청)
+  if (motion) hush(); else say("인화하는 중입니다…", 0);
   fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
       // 한 번 뽑으면 다시 찍기 전까지 막습니다. 필름을 아끼려는 것입니다.
       S.printed = true;
-      say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
+      if (motion && pm) pm.ok = true;
+      if (!motion) say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
       printerStatus();   // 남은 필름 수를 새로 읽습니다
     })
     .catch(function(e){
+      closePrintMotion();
       say(e instanceof TypeError
         ? "인화 맥에 연결하지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인하세요."
         : "인화하지 못했습니다. "+e.message, 9000);
@@ -2861,8 +2868,10 @@ function printInstax(){
 function syncPrintBtn(){
   var b=$("printBtn");
   var direct = instaxOn() || !!relayUrl();   // 맥으로 바로 뽑는 경우(인스탁스·엡손)
+  var sent = !!(S.printing || S.printed);
   b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
-  b.disabled = direct && (S.printing || S.printed);
+  b.disabled = (direct && sent) || (!!DRIVE_URL && !S.qrOk);   // QR 이 떠야 인화할 수 있습니다(사용자 요청)
+  $("saveBtn").hidden = $("againBtn").hidden = sent;   // 인화를 보내면 저장·다시 찍기를 숨깁니다(사용자 요청)
   $("mirrorBtn").hidden = !S.res;
   $("mirrorBtn").disabled = !!(S.printing || S.printed);
   // 인스탁스는 인화가 주인공입니다. 버튼을 앞으로 빼고 강조합니다.
