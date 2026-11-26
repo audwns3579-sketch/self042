@@ -2609,8 +2609,8 @@ $("printBtn").addEventListener("click", function(){
    인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷·인스탁스도 지금은 스테인리스를 씁니다.
    가로 인화(폴라로이드 가로)는 실제 용지 방향대로 세로로 돌려(얼굴 위쪽이 오른쪽) 뽑습니다.
    인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
-// 카메라 8컷·인스탁스 와이드도 모션을 보여줍니다(사용자 요청, 모든 프레임). 새 즉석카메라 모션을 만들기 전까지는 스테인리스 배출구를 씁니다
-var PRINT_MOTION = { film8:"steel", pol6v:"printer", pol6h:"printer", bw3:"steel", cam8:"steel", wl1:"steel", wl2:"steel", wp1:"steel", wp2:"steel" };
+// 모든 프레임이 즉석카메라 모션(camera)을 씁니다(사용자 요청, 2026-11-26). 예전 프린터 영상(printer)·스테인리스(steel) 그리기는 남겨 두었습니다
+var PRINT_MOTION = { film8:"camera", pol6v:"camera", pol6h:"camera", bw3:"camera", cam8:"camera", wl1:"camera", wl2:"camera", wp1:"camera", wp2:"camera" };
 var PM_SEC = 6, PM_HOME_MS = 5000;
 new Image().src="machines/steel.jpg";   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
 var pm=null;   // 지금 재생 중인 모션
@@ -2710,7 +2710,48 @@ function pmSteel(x, t, img){
   pmPoly(x,p); x.strokeStyle="rgba(255,255,255,.45)"; x.lineWidth=1.2; x.stroke();
   x.restore();
 }
-var PM_DRAW = { printer:pmPrinter, steel:pmSteel };
+/* 즉석카메라(machines/camera.jpg, 1920×1088, Abocado GPT Image 2.5 Flare 로 만듦, 사용자 요청): 윗면 구멍(y 412, x 726~1168)에서
+   인화물이 위로 올라옵니다. 사진이 다 보이도록 그동안 카메라가 0.72 배까지 멀어집니다(아래쪽 탁자 근처를 축으로).
+   멀어지면 그림 가장자리가 비어서, 흐리게 늘린 같은 그림을 바탕에 깔고 가장자리를 부드럽게 지운 카메라 그림을 얹습니다 */
+var PM_CAM = { cx:947, slot:412, w:404, ax:947, ay:1000, s1:0.72 };
+var pmCamImg = new Image(); pmCamImg.src = "machines/camera.jpg";
+var pmCamLayers = null;   // [흐린 바탕, 가장자리 지운 카메라] — 처음 쓸 때 한 번 만듭니다
+function pmEase(u){ u=pmClamp(u); return u<.5 ? 4*u*u*u : 1-Math.pow(-2*u+2,3)/2; }
+function pmCamera(x, t, img){
+  if (!pmCamImg.complete || !pmCamImg.naturalWidth) return;
+  if (!pmCamLayers){
+    var bg=document.createElement("canvas"); bg.width=1920; bg.height=1088;
+    var b=bg.getContext("2d"); b.filter="blur(40px) brightness(.8)"; b.drawImage(pmCamImg,-160,-90,2240,1268); b.filter="none";
+    var cam=document.createElement("canvas"); cam.width=1920; cam.height=1088;
+    var c=cam.getContext("2d"), F=160, g; c.drawImage(pmCamImg,0,0);
+    c.globalCompositeOperation="destination-in";
+    [[0,0,F,0],[1920,0,1920-F,0],[0,0,0,F],[0,1088,0,1088-F]].forEach(function(e){   // 네 가장자리를 160px 에 걸쳐 투명하게
+      g=c.createLinearGradient(e[0],e[1],e[2],e[3]); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,1)");
+      c.fillStyle=g; c.fillRect(0,0,1920,1088);
+    });
+    pmCamLayers=[bg, cam];
+  }
+  var C=PM_CAM, s=1+(C.s1-1)*pmEase((t-.5)/3.5);
+  var u=pmClamp((t-.6)/3.9), r=pmClamp(u+.006*Math.sin(u*Math.PI*14));   // 모터로 밀려 나오듯 아주 조금씩 멈칫
+  x.drawImage(pmCamLayers[0],0,0);
+  x.save(); x.translate(C.ax,C.ay); x.scale(s,s); x.translate(-C.ax,-C.ay);
+  x.drawImage(pmCamLayers[1],0,0);
+  if (r>0){
+    var w=C.w, h=w*img.height/img.width, top=C.slot-r*h, L=C.cx-w/2;
+    x.save(); x.beginPath(); x.rect(0,-2000,1920,C.slot+2000); x.clip();   // 구멍 선 아래는 카메라 속이라 안 보입니다
+    x.save(); x.shadowColor="rgba(0,0,0,.45)"; x.shadowBlur=18*pm.k*s; x.shadowOffsetX=6*pm.k*s; x.shadowOffsetY=4*pm.k*s;
+    x.fillStyle="#f4f2ee"; x.fillRect(L,top,w,h); x.restore();
+    x.drawImage(img,L,top,w,h);
+    var g=x.createLinearGradient(0,C.slot-60,0,C.slot); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,.35)");   // 구멍 쪽 그늘
+    x.fillStyle=g; x.fillRect(L,C.slot-60,w,60);
+    g=x.createLinearGradient(L,0,L+w,0); g.addColorStop(0,"rgba(255,255,255,.10)"); g.addColorStop(.5,"rgba(255,255,255,0)"); g.addColorStop(1,"rgba(0,0,0,.08)");   // 광택
+    x.fillStyle=g; x.fillRect(L,top,w,h);
+    x.strokeStyle="rgba(0,0,0,.25)"; x.lineWidth=1; x.strokeRect(L+.5,top+.5,w-1,h-1);
+    x.restore();
+  }
+  x.restore();
+}
+var PM_DRAW = { printer:pmPrinter, steel:pmSteel, camera:pmCamera };
 
 /* onHome: 다 됐다는 안내를 5초 보여준 뒤 부릅니다. accepted: 인화를 보내는 데 성공했는지(실패하면 openPrintMotion 을 닫습니다) */
 function openPrintMotion(L, blob, onHome, accepted){
