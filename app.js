@@ -2606,11 +2606,11 @@ $("printBtn").addEventListener("click", function(){
 });
 /* ── 인화 모션(사용자 요청) — 인쇄를 누르면 방금 만든 인화 사진이 뽑혀 나오는 화면을 6초 동안 보여줍니다.
    폴라로이드 6컷 = 흰 종이가 나오는 프린터 실물 영상(machines/printer.mp4, AI 로 만듦)의 종이 위에 손님 인화물을 프레임마다 입힙니다.
-   인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷·인스탁스도 지금은 스테인리스를 씁니다.
+   인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷은 없고, 인스탁스는 즉석카메라(pmCamera)입니다.
    가로 인화(폴라로이드 가로)는 실제 용지 방향대로 세로로 돌려(얼굴 위쪽이 오른쪽) 뽑습니다.
    인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
-// 모든 프레임이 즉석카메라 모션(camera)을 씁니다(사용자 요청, 2026-11-26). 예전 프린터 영상(printer)·스테인리스(steel) 그리기는 남겨 두었습니다
-var PRINT_MOTION = { film8:"camera", pol6v:"camera", pol6h:"camera", bw3:"camera", cam8:"camera", wl1:"camera", wl2:"camera", wp1:"camera", wp2:"camera" };
+// 즉석카메라 모션(camera)은 인스탁스 와이드에만 씁니다(사용자 요청, 2026-11-26). 나머지는 예전 그대로이고 카메라 8컷은 모션이 없습니다
+var PRINT_MOTION = { film8:"steel", pol6v:"printer", pol6h:"printer", bw3:"steel", wl1:"camera", wl2:"camera", wp1:"camera", wp2:"camera" };
 var PM_SEC = 6, PM_HOME_MS = 5000;
 new Image().src="machines/steel.jpg";   // 처음 인쇄 때 늦게 뜨지 않게 미리 받기
 var pm=null;   // 지금 재생 중인 모션
@@ -2912,7 +2912,6 @@ function syncPrintBtn(){
   var sent = !!(S.printing || S.printed);
   b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
   b.disabled = (direct && sent) || (!!DRIVE_URL && !S.qrOk);   // QR 이 떠야 인화할 수 있습니다(사용자 요청)
-  $("saveBtn").hidden = $("againBtn").hidden = sent;   // 인화를 보내면 저장·다시 찍기를 숨깁니다(사용자 요청)
   $("mirrorBtn").hidden = !S.res;
   $("mirrorBtn").disabled = !!(S.printing || S.printed);
   // 인스탁스는 인화가 주인공입니다. 버튼을 앞으로 빼고 강조합니다.

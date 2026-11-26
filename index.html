@@ -643,12 +643,13 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <p class="hint" id="qrNote" style="margin-top:6px"></p>
   </div>
   <div class="row result-actions" style="justify-content:center">
-    <button class="btn primary" id="saveBtn">사진 앱에 저장</button>
+    <!-- 사진 앱에 저장·다시 찍기는 결과 화면에서 뺐습니다(사용자 요청, 2026-11-26). 인화·좌우 반전·QR 만 둡니다 -->
+    <button class="btn primary" id="saveBtn" hidden>사진 앱에 저장</button>
     <button class="btn" id="printBtn">인쇄</button>
     <button class="btn" id="mirrorBtn" hidden>좌우 반전</button>
-    <button class="btn ghost" id="againBtn">다시 찍기</button>
+    <button class="btn ghost" id="againBtn" hidden>다시 찍기</button>
   </div>
-  <p class="hint">저장을 누르면 공유 시트가 열립니다. <b>이미지 저장</b>을 고르면 사진 앱에 들어갑니다.<span id="resultHint"><br>
+  <p class="hint" hidden>저장을 누르면 공유 시트가 열립니다. <b>이미지 저장</b>을 고르면 사진 앱에 들어갑니다.<span id="resultHint"><br>
   인쇄를 누르면 공유 창이 열립니다. <b>프린트</b>를 고르고 용지를 5×7 로 두세요.</span></p>
 </section>
 
