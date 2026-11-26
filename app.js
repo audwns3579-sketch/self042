@@ -2999,10 +2999,12 @@ function printerStatus(){
       : "프린터 준비";
   }).catch(function(){ el.className = "bad"; el.textContent = "프린터 연결 안 됨"; });
 }
-/* 인스탁스 필름은 모니터보다 밝은 쪽을 못 버텨서, 거의 흰 곳(흑백의 얼굴)이 종이색으로 날아갔습니다(사용자 시험 인화, 2026-11-26).
-   인스탁스로 보낼 때만 사진 칸 안의 밝기 0.55 위를 부드럽게 눌러 가장 밝은 흰색을 235 로 보냅니다(0.8→0.78, 0.9→0.85, 1→0.92).
-   아래 흰 이름 띠는 필름 테두리와 같은 흰색으로 둡니다. 화면·QR·엡손 인쇄는 그대로입니다(사용자 요청 A). 0.55 아래는 바꾸지 않습니다 */
-var INSTAX_KNEE = 0.55, INSTAX_WHITE = 235;
+/* 인스탁스 프린터는 중간~밝은 쪽을 크게 밝혀 뽑아서, 화면 밝기 165 이상이 종이 흰색이 됐습니다(사용자 시험 인화 스캔과 화면 파일을
+   같은 자리끼리 잰 값: 화면 40→인화 36, 64→67, 120→177, 140→195, 165 이상→240~253, 얼굴 211→249, 2026-11-26).
+   그 값을 거꾸로 계산한 곡선을 70% 세기로 써서 인스탁스로 보낼 때만 사진 칸을 어둡게 보냅니다(스캐너가 스스로 밝혔을 수 있어 덜 세게).
+   [화면 밝기, 보내는 밝기] 점 사이는 곧게 잇습니다. 아래 흰 이름 띠는 필름 테두리와 같은 흰색으로 둡니다. 화면·QR·엡손 인쇄는 그대로입니다.
+   다음 시험 인화를 보고 이 점들을 고칩니다(사용자 요청) */
+var INSTAX_CURVE = [[0,0],[40,40],[64,58],[96,75],[128,98],[160,124],[192,151],[210,171],[230,182],[255,214]];
 function instaxTone(blob, L){
   return new Promise(function(res){
     var img=new Image(), u=URL.createObjectURL(blob);
@@ -3010,8 +3012,12 @@ function instaxTone(blob, L){
       URL.revokeObjectURL(u);
       var c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
       var x=c.getContext("2d"); x.drawImage(img,0,0);
-      var t=new Uint8ClampedArray(256), k=INSTAX_KNEE, b=(1-INSTAX_WHITE/255)/((1-k)*(1-k)), i;
-      for (i=0;i<256;i++){ var v=i/255; t[i]=Math.round(255*(v<=k ? v : v-b*(v-k)*(v-k))); }
+      var t=new Uint8ClampedArray(256), i, k=0;
+      for (i=0;i<256;i++){
+        while (k < INSTAX_CURVE.length-2 && i > INSTAX_CURVE[k+1][0]) k++;
+        var A=INSTAX_CURVE[k], B=INSTAX_CURVE[k+1];
+        t[i]=Math.round(A[1]+(B[1]-A[1])*(i-A[0])/(B[0]-A[0]));
+      }
       var sx=c.width/((L && L.canvas.w) || c.width), sy=c.height/((L && L.canvas.h) || c.height);
       ((L && L.slots) || [{x:0, y:0, w:c.width, h:c.height}]).forEach(function(s){   // 사진 칸만
         var x0=Math.max(0,Math.round(s.x*sx)), y0=Math.max(0,Math.round(s.y*sy)), w=Math.min(c.width,Math.round((s.x+s.w)*sx))-x0, h=Math.min(c.height,Math.round((s.y+s.h)*sy))-y0;
