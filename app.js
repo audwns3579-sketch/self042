@@ -1562,14 +1562,109 @@ function grabFull(){
     src = document.createElement("canvas"); src.width=cw; src.height=vh;
     src.getContext("2d").drawImage(v, cx, 0, cw, vh, 0, 0, cw, vh);
   }
-  var scale = Math.min(1, 1920/Math.max(cw,vh));   // HDMI 크기를 그대로 둡니다(1600 → 1920)
+  var out = lookShot(src, cw, vh);
+  if (src !== v) free(src);
+  return out;
+}
+/* 찍은 그림(src, w×h)을 긴 쪽 1920 으로 담고 보정·뷰티를 입힙니다. HDMI 캡처와 테더 파일이 같이 씁니다 */
+function lookShot(src, w, h){
+  var scale = Math.min(1, 1920/Math.max(w,h));   // HDMI 크기를 그대로 둡니다(1600 → 1920)
   var out=document.createElement("canvas");
-  out.width=Math.round(cw*scale); out.height=Math.round(vh*scale);
+  out.width=Math.round(w*scale); out.height=Math.round(h*scale);
   // 전면 카메라는 거울처럼 뒤집어 담습니다
   drawLook(out, src, beautyLook(activeFilter()), mirrorFor(), CFG.slim);
   if (beautyWarp()) beautyInto(out, beautyFaces(out));   // 뷰티(눈·중안부·갸름)
-  if (src !== v) free(src);
   return out;
+}
+
+/* ── 테더 사진(사용자 요청, 화질) — HDMI 화면은 1620×1080 확인 화면이라 흐립니다. X Acquire(USB 테더 촬영 자동)가 카메라 원본을
+   PC 폴더에 저장하면, 릴리즈마다 그 폴더에 새로 생긴 JPG 를 찍은 순서대로 그 컷에 바꿔 넣습니다(뷰티·색감·프레임은 그대로).
+   폴더는 관리자 "사진 폴더 고르기"로 한 번 고릅니다(크롬 폴더 읽기 권한, kv "photoDir"). 촬영을 시작할 때 있던 파일은 건너뜁니다.
+   파일 크기가 0.4초 동안 그대로면 다 쓴 것으로 봅니다. 촬영이 끝났는데 6초 안에 파일이 안 오면 그 컷은 HDMI 캡처를 그대로 씁니다.
+   릴리즈를 눌렀는데 HDMI 로 셔터를 못 알아챈 컷이 있으면 그 뒤 컷들이 한 장씩 밀릴 수 있습니다. */
+var TETHER = { dir:null, ok:false, on:false, seen:{}, size:{}, files:[], queue:[], pending:0, timer:0 };
+kvGet("photoDir").then(function(h){ TETHER.dir = h || null; syncPhotoDirNote(); }).catch(function(){});
+function syncPhotoDirNote(){
+  $("photoDirNote").textContent = TETHER.dir
+    ? "쓰는 폴더: "+TETHER.dir.name+" — 릴리즈마다 이 폴더의 새 사진(카메라 원본)을 씁니다. 크롬이 권한을 물으면 \"방문할 때마다 허용\"을 고르세요."
+    : "고른 폴더가 없어 HDMI 화면을 캡처해 씁니다. X Acquire 저장 폴더를 고르면 카메라 원본으로 찍힙니다.";
+}
+$("photoDirBtn").addEventListener("click", function(){
+  if (!window.showDirectoryPicker){ say("이 브라우저는 폴더를 고를 수 없습니다. 윈도우 크롬에서 열어 주세요.", 6000); return; }
+  window.showDirectoryPicker({ id:"booth-photos", mode:"read" }).then(function(h){
+    TETHER.dir = h; TETHER.ok = true; kvSet("photoDir", h); syncPhotoDirNote(); say("사진 폴더를 정했습니다: "+h.name, 4000);
+  }).catch(function(){});
+});
+$("photoDirOff").addEventListener("click", function(){
+  TETHER.dir = null; TETHER.ok = false; kvSet("photoDir", null); syncPhotoDirNote();
+});
+/* "카메라 켜기"를 누를 때(손님의 터치라서 크롬이 권한을 물을 수 있음) 폴더 읽기 권한을 확인합니다 */
+function tetherAsk(){
+  var d=TETHER.dir; TETHER.ok=false; if (!d || !d.requestPermission) return;
+  d.requestPermission({ mode:"read" }).then(function(p){ TETHER.ok = p==="granted"; }).catch(function(){});
+}
+function tetherList(){   // 폴더 안 JPG 파일 손잡이 목록
+  var out=[], it=TETHER.dir.values();
+  return (function step(){
+    return it.next().then(function(r){
+      if (r.done) return out;
+      if (r.value.kind==="file" && /\.jpe?g$/i.test(r.value.name)) out.push(r.value);
+      return step();
+    });
+  })();
+}
+function tetherStart(){
+  var T=TETHER; tetherStop(); T.files=[]; T.queue=[]; T.pending=0; T.seen={}; T.size={};
+  if (!T.dir || !T.ok) return;
+  T.on=true;
+  tetherList().then(function(list){ list.forEach(function(h){ T.seen[h.name]=1; }); if (T.on) T.timer=setTimeout(tetherPoll, 400); })
+    .catch(function(){ T.on=false; });
+}
+function tetherStop(){ TETHER.on=false; clearTimeout(TETHER.timer); }
+function tetherPoll(){
+  var T=TETHER; if (!T.on) return;
+  tetherList().then(function(list){
+    return Promise.all(list.filter(function(h){ return !T.seen[h.name]; }).map(function(h){ return h.getFile(); }));
+  }).then(function(files){
+    files.sort(function(a,b){ return a.lastModified-b.lastModified || (a.name<b.name ? -1 : 1); });
+    files.forEach(function(f){
+      if (f.size>0 && T.size[f.name]===f.size){ T.seen[f.name]=1; T.files.push(f); }   // 크기가 그대로면 다 쓴 파일
+      else T.size[f.name]=f.size;
+    });
+    tetherAssign();
+  }).catch(function(){}).then(function(){ if (T.on) T.timer=setTimeout(tetherPoll, 400); });
+}
+/* 찍은 컷 번호(queue)와 새 파일(files)을 순서대로 짝지어, 그 컷을 카메라 원본으로 바꿉니다 */
+function tetherAssign(){
+  var T=TETHER;
+  while (T.files.length && T.queue.length){
+    (function(f, idx){
+      T.pending++;
+      createImageBitmap(f).then(function(bm){
+        var old=S.shots[idx];
+        if (!old || S.cancelled){ bm.close(); return; }
+        // 6000px 원본을 한 번에 줄이면 거칠어서, 긴 쪽 1920 으로 곱게 줄인 뒤 보정합니다
+        var sc=Math.min(1, 1920/Math.max(bm.width, bm.height)), mid=document.createElement("canvas");
+        mid.width=Math.round(bm.width*sc); mid.height=Math.round(bm.height*sc);
+        var m=mid.getContext("2d"); m.imageSmoothingQuality="high"; m.drawImage(bm, 0, 0, mid.width, mid.height); bm.close();
+        var c=lookShot(mid, mid.width, mid.height); free(mid);
+        if (S.shots[idx]!==old){ free(c); return; }
+        S.shots[idx]=c; free(old);
+      }).catch(function(e){ console.warn("테더 사진을 읽지 못했습니다", f.name, e); })
+        .then(function(){ T.pending--; });
+    })(T.files.shift(), T.queue.shift());
+  }
+}
+/* 촬영이 끝나면 남은 파일을 최대 6초 기다린 뒤 폴더 보기를 멈춥니다. 바꾸는 중인 컷(pending)은 끝까지 기다립니다
+   (고르기 화면이 컷 그림을 그대로 쓰므로, 화면을 연 뒤에 바뀌면 빈 칸이 됩니다) */
+function tetherFinish(){
+  var T=TETHER; if (!T.on && !T.pending) return Promise.resolve();
+  var end=Date.now()+6000;
+  return (function check(){
+    if (S.cancelled || Date.now()>end){ tetherStop(); T.queue=[]; }
+    if ((!T.queue.length || !T.on) && !T.pending){ tetherStop(); T.queue=[]; return Promise.resolve(); }
+    return wait(200).then(check);
+  })();
 }
 
 /* ── 릴리즈 촬영 ─────────────────────────
@@ -1701,12 +1796,14 @@ function runSession(){
   var L = enabledLayouts()[cur];
   var need = needShots(L), total = shootTotal(L), pick = pickMode();
   S.shots=[]; S.cancelled=false; S.enough=false; ticks(0,total); clearShootPv();
+  tetherStart();   // 사진 폴더를 골라 두었으면 릴리즈마다 카메라 원본으로 바꿉니다
   function next(i){
     if (S.cancelled || S.enough || i>=total) return Promise.resolve();
     return waitRelease(i+1, total).then(function(c){
       if (S.cancelled || S.enough) return;
       if (!c){ say("카메라 화면을 읽지 못했습니다."); S.cancelled=true; return; }
       S.shots.push(c); ticks(S.shots.length,total);
+      if (TETHER.on){ TETHER.queue.push(S.shots.length-1); tetherAssign(); }
       // 방금 찍은 사진을 오른쪽 아래 PREVIEW 에 칸 모양으로(하루필름처럼, 사용자 요청)
       var pv=$("shootPvC"), s0=L.slots[0] || {w:1,h:1}; pv.width=360; pv.height=Math.round(360*s0.h/s0.w);
       drawCover(pv.getContext("2d"), c, 0, 0, pv.width, pv.height); $("shootPv").hidden=false;
@@ -1715,7 +1812,7 @@ function runSession(){
       return flash().then(function(){ return wait(700); }).then(function(){ return next(i+1); });
     });
   }
-  return next(0).then(function(){
+  return next(0).then(tetherFinish).then(function(){
     stopShootTimer(); $("doneBtn").hidden=true;
     if (S.cancelled || S.shots.length<need) return;
     if (pick){ stopStream(); releaseAwake(); openPick(L, shotCount(L)); return; }
@@ -2403,7 +2500,7 @@ $("pickQuit").addEventListener("click", function(){
 
 /* ── 손님 버튼 ────────────────────────── */
 $("startBtn").addEventListener("click", function(){
-  hush();
+  hush(); tetherAsk();
   var L = enabledLayouts()[cur];
   if (!L){ say("관리자 화면에서 인화 방식을 하나 이상 켜주세요."); return; }
   var s0 = L.slots[0] || {w:2,h:3};

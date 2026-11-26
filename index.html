@@ -691,6 +691,12 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
         </div>
         <p class="note" id="camNote">외장 카메라를 꽂았다면 여기서 골라야 포토부스가 그 카메라를 씁니다.
         이름이 안 보이면 아래 보정 미리보기에서 카메라를 한 번 켜서 권한을 허용한 뒤 다시 찾으세요.</p>
+        <!-- 테더 사진: X Acquire 가 카메라 원본을 저장하는 폴더를 고르면, 릴리즈마다 HDMI 화면 대신 그 파일을 씁니다(사용자 요청, 화질) -->
+        <div class="row">
+          <button class="btn sm" id="photoDirBtn">사진 폴더 고르기</button>
+          <button class="btn sm ghost" id="photoDirOff">폴더 안 쓰기</button>
+        </div>
+        <p class="note" id="photoDirNote"></p>
       </div>
 
       <div class="card">
