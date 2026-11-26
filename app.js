@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 33,
+    version: 34,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -123,7 +123,7 @@ function defaultConfig(){
          오른쪽 맞춤은 글자 사이 간격(ls)이 마지막 글자 뒤에도 붙어서 6~8 더 바깥으로 줘야 양쪽 끝에서 같은 거리(약 19)가 됩니다.
          1컷은 문구가 하나라 그대로입니다. 끝에서 18 이상 띄워 필름 창이 가리는 가장자리(긴 쪽 약 11)를 피합니다. */
       {
-        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4,
+        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -135,7 +135,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4,
+        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -149,7 +149,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4,
+        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -161,7 +161,7 @@ function defaultConfig(){
         cut: { on:false, x:420, color:"#D8D0CA" }
       },
       {
-        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4,
+        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -401,6 +401,10 @@ function migrate(cfg){
     cfg.layouts = cfg.layouts.filter(function(l){ return l.id !== "wl4" && l.id !== "wp4"; });
     cfg.layouts.forEach(function(l){ if (l.instax) l.shots = 4; });
   }
+  // 인스탁스도 원본·흑백을 고릅니다(사용자 요청). 한 번만
+  if (cfg.version < 34 && cfg.layouts){
+    cfg.layouts.forEach(function(l){ if (l.instax) l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ]; });
+  }
   // "원본"(none)은 늘 손대지 않은 사진이고 보정 목록 맨 앞입니다. PC 에서 원본이 빠지거나 값이 바뀌어
   // 원본·인스탁스가 흑백으로 나온 적이 있습니다(2026-11-26, 사용자 요청). 켤 때마다 기본값으로 되돌립니다. 다른 보정은 그대로 둡니다
   if (Array.isArray(cfg.filters) && cfg.filters.length){
@@ -408,7 +412,7 @@ function migrate(cfg){
     if (nIdx >= 0) cfg.filters.splice(nIdx, 1);
     cfg.filters.unshift(defaultFilters()[0]);
   }
-  if (cfg.version >= 8){ cfg.version = 33; return cfg; }
+  if (cfg.version >= 8){ cfg.version = 34; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -687,9 +691,9 @@ function buildModes(){
 /* 카메라(인화 방식)에 필름이 정해져 있으면 그 보정을 씁니다.
    손님이 보정을 따로 고르지 않도록 3단계의 보정 버튼을 숨깁니다. */
 function lookOf(L){ return (L && L.look) ? filterById(L.look) : null; }
-/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 6컷·흑백 3컷에만 보입니다(사용자 요청). 카메라 8컷은 첫 번째 보정(원본).
-   L.looks 가 있으면(흑백 3컷: 원본·흑백) 그 버튼만 보여줍니다 */
-var COLOR_PICK = ["film8", "pol6v", "pol6h", "bw3"];
+/* "색을 골라주세요"(보정 버튼)는 인생네컷·폴라로이드 6컷·흑백 3컷·인스탁스 와이드에만 보입니다(사용자 요청). 카메라 8컷은 첫 번째 보정(원본).
+   L.looks 가 있으면(흑백 3컷·인스탁스: 원본·흑백) 그 버튼만 보여줍니다 */
+var COLOR_PICK = ["film8", "pol6v", "pol6h", "bw3", "wl1", "wl2", "wp1", "wp2"];
 function syncLook(){
   var L = enabledLayouts()[cur], look = lookOf(L), pick = !look && !!L && COLOR_PICK.indexOf(L.id) >= 0;
   $("filters").hidden = !pick; $("step3Title").hidden = !pick;
