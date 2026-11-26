@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 32,
+    version: 33,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
@@ -123,7 +123,7 @@ function defaultConfig(){
          오른쪽 맞춤은 글자 사이 간격(ls)이 마지막 글자 뒤에도 붙어서 6~8 더 바깥으로 줘야 양쪽 끝에서 같은 거리(약 19)가 됩니다.
          1컷은 문구가 하나라 그대로입니다. 끝에서 18 이상 띄워 필름 창이 가리는 가장자리(긴 쪽 약 11)를 피합니다. */
       {
-        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true,
+        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4,
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -135,7 +135,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true,
+        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4,
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -149,23 +149,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wl4", name: "와이드 가로 4컷", enabled: true, instax: true,
-        canvas: { w:1260, h:840 },
-        frame: null,
-        slots: [
-          {x:0, y:0, w:630, h:397, shot:0},
-          {x:630, y:0, w:630, h:397, shot:1},
-          {x:0, y:397, w:630, h:397, shot:2},
-          {x:630, y:397, w:630, h:397, shot:3}
-        ],
-        texts: [
-          {content:"042 STUDIO  -  DAEJEON", x:18, y:805, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111"},
-          {content:"042 STUDIO  -  DAEJEON", x:1250, y:805, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111"}
-        ],
-        cut: { on:false, x:630, color:"#D8D0CA" }
-      },
-      {
-        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true,
+        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4,
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -177,28 +161,12 @@ function defaultConfig(){
         cut: { on:false, x:420, color:"#D8D0CA" }
       },
       {
-        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true,
+        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4,
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
           {x:46, y:0, w:794, h:630, shot:0},
           {x:46, y:630, w:794, h:630, shot:1}
-        ],
-        texts: [
-          {content:"042 STUDIO  -  DAEJEON", x:35, y:18, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111", rot:90},
-          {content:"042 STUDIO  -  DAEJEON", x:35, y:1250, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111", rot:90}
-        ],
-        cut: { on:false, x:420, color:"#D8D0CA" }
-      },
-      {
-        id: "wp4", name: "와이드 세로 4컷", enabled: true, instax: true,
-        canvas: { w:840, h:1260 },
-        frame: null,
-        slots: [
-          {x:46, y:0, w:397, h:630, shot:0},
-          {x:443, y:0, w:397, h:630, shot:1},
-          {x:46, y:630, w:397, h:630, shot:2},
-          {x:443, y:630, w:397, h:630, shot:3}
         ],
         texts: [
           {content:"042 STUDIO  -  DAEJEON", x:35, y:18, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111", rot:90},
@@ -428,7 +396,12 @@ function migrate(cfg){
     cfg.layouts = cfg.layouts.filter(function(l){ return !l.instax; })
       .concat(defaultConfig().layouts.filter(function(d){ return d.instax; }));
   }
-  if (cfg.version >= 8){ cfg.version = 32; return cfg; }
+  // 인스탁스 와이드는 1·2컷만 쓰고(4컷 wl4·wp4 뺌), 4장만 찍습니다(사용자 요청). 한 번만
+  if (cfg.version < 33 && cfg.layouts){
+    cfg.layouts = cfg.layouts.filter(function(l){ return l.id !== "wl4" && l.id !== "wp4"; });
+    cfg.layouts.forEach(function(l){ if (l.instax) l.shots = 4; });
+  }
+  if (cfg.version >= 8){ cfg.version = 33; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -1986,7 +1959,7 @@ function openPick(L, need, imported){
   $("pickOrient").hidden = !P.imported || orientFixed;
   pickEl.classList.toggle("withOrient", !$("pickOrient").hidden);   // 가로·세로 버튼이 있으면 필름을 조금 작게(자리 확보)
   if (P.imported && !orientFixed) buildChips($("pickOrient"), instaxOrients().map(function(o){ return {id:o, name:o==="h" ? "가로" : "세로"}; }), instaxOrient, false);
-  if (instaxOn()){ pickChips(); printerStatus(); }   // 인스탁스: 1·2·4컷 버튼, 아래에 프린터 상태(photoboo 와 같음)
+  if (instaxOn()){ pickChips(); printerStatus(); }   // 인스탁스: 1·2컷 버튼, 아래에 프린터 상태(photoboo 와 같음)
   pickLookId = null; lookChips();      // 손님마다 첫 번째 색감에서 시작합니다
   $("pickGrid").innerHTML = "";
   S.shots.forEach(function(c, i){ addPickThumb(c, i); });

@@ -213,6 +213,8 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   .shoot-l .shoot-n{font-size:clamp(26px,2.4vw,40px);color:var(--muted);margin-top:6px}
   .shoot-r{top:7vh;transform:none}
   .shoot-pv{position:absolute;right:2vw;bottom:9vh;width:24vw}
+  /* 카메라 칸은 양옆 칸(2vw + 24vw) 사이 48vw 안에, 양쪽 1vw 씩 띄워 46vw 까지. 넓은 칸(인스탁스 가로)이 뷰티·시계를 덮던 것 고침 */
+  .stage{max-width:min(92vw,68vh*var(--ar-num),46vw)}
 }
 .shoot-b{display:flex;flex-direction:column;gap:14px;width:min(360px,90vw)}
 .shoot-b[hidden]{display:none}
