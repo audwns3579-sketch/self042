@@ -3,7 +3,8 @@
   ---------------------------------------------------------------
   아이패드 부스 앱이 인화 사진을 보내면 드라이브에 두 곳으로 저장합니다. 찍은 원본은 "셀프042 사진" 에만 저장합니다.
     · "셀프042 QR"   — 손님이 QR 로 받는 곳. 링크가 있는 사람은 볼 수 있고, 2일 지나면 휴지통으로 옮깁니다.
-    · "셀프042 사진" — 보관용. 손님마다 폴더 하나(프레임 + 원본_01.jpg …). 지우지 않습니다. 아이맥의 "Google Drive" 앱으로 이 폴더를 받으면 자동으로 아이맥에 들어옵니다.
+    · "셀프042 사진" — 보관용. 손님마다 폴더 하나(프레임 + 원본_01.jpg …). 아이맥의 "Google Drive" 앱으로 이 폴더를 받으면 자동으로 아이맥에 들어옵니다.
+                       이곳도 2일 지나면 휴지통으로 옮깁니다(사용자 요청, 2026-11-26). 아이맥의 같은 폴더에서도 같이 사라집니다.
 
   올리는 법은 셀프042/README.md 의 "구글 드라이브 QR" 을 보세요.
   KEY 는 부스 앱 app.js 의 DRIVE_KEY 와 같아야 합니다.
@@ -11,7 +12,7 @@
 
 var SHARE_FOLDER = "셀프042 QR";
 var KEEP_FOLDER  = "셀프042 사진";
-var KEEP_DAYS    = 2;            // 손님 QR 사진을 남겨두는 날 수 (사용자 요청 2일)
+var KEEP_DAYS    = 2;            // 손님 QR 사진과 보관 폴더를 남겨두는 날 수 (사용자 요청 2일)
 var KEY          = "self042";    // 아무나 사진을 올리지 못하게 하는 암호. app.js 의 DRIVE_KEY 와 같게
 
 function doPost(e) {
@@ -44,13 +45,24 @@ function doPost(e) {
 }
 
 /* 1시간마다 돌면서 KEEP_DAYS 가 지난 QR 사진을 휴지통으로 옮깁니다. 휴지통에 들어가면 손님 링크가 막힙니다.
-   보관용 폴더(KEEP_FOLDER)는 건드리지 않습니다. */
+   보관용 폴더(KEEP_FOLDER) 안의 손님 폴더·사진도 KEEP_DAYS 가 지나면 휴지통으로 옮깁니다(사용자 요청). 드라이브 휴지통에서 30일 동안은 되살릴 수 있습니다. */
 function cleanup() {
   var cut = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000;
   var it = folder(SHARE_FOLDER).getFiles();
   while (it.hasNext()) {
     var f = it.next();
     if (f.getDateCreated().getTime() < cut) f.setTrashed(true);
+  }
+  var keep = folder(KEEP_FOLDER);
+  var subs = keep.getFolders();
+  while (subs.hasNext()) {
+    var d = subs.next();
+    if (d.getDateCreated().getTime() < cut) d.setTrashed(true);
+  }
+  var loose = keep.getFiles();   // 손님 폴더 없이 올라온 옛 사진
+  while (loose.hasNext()) {
+    var g = loose.next();
+    if (g.getDateCreated().getTime() < cut) g.setTrashed(true);
   }
 }
 
