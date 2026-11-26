@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 36,
+    version: 37,
     brand: "STUDIO 042",
     timer: 5,
     filter: "none",
@@ -123,7 +123,7 @@ function defaultConfig(){
          오른쪽 맞춤은 글자 사이 간격(ls)이 마지막 글자 뒤에도 붙어서 6~8 더 바깥으로 줘야 양쪽 끝에서 같은 거리(약 19)가 됩니다.
          1컷은 문구가 하나라 그대로입니다. 끝에서 18 이상 띄워 필름 창이 가리는 가장자리(긴 쪽 약 11)를 피합니다. */
       {
-        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
+        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"plainbw", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -135,7 +135,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
+        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"plainbw", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -149,7 +149,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
+        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"plainbw", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -161,7 +161,7 @@ function defaultConfig(){
         cut: { on:false, x:420, color:"#D8D0CA" }
       },
       {
-        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
+        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"plainbw", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -201,7 +201,10 @@ function defaultFilters(){
     // 인생네컷·폴라로이드·흑백 3컷 색 고르기에서 원본 바로 옆
     newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true}),
     // 비비드 = 진한 빈티지 화보(주황빛 빨강, 깊은 파랑, 황금빛 피부, 강한 대비). 색은 표(luts/vivid01.js)가 정합니다(사용자 요청, 2026-11-26)
-    newFilter({id:"vivid",  name:"비비드",   lut:VIVID_LUT, lutAmount:100})
+    newFilter({id:"vivid",  name:"비비드",   lut:VIVID_LUT, lutAmount:100}),
+    // 일반 흑백 = 색만 빼는 흑백(인스탁스 와이드 전용). 릴스 흑백(mono)은 피부를 하얗게 띄워 인스탁스에서 얼굴이 날아갔습니다(사용자 요청, 2026-11-26).
+    // 색 버튼 목록(shownFilters)에는 안 나오게 끄고, 인스탁스 고르기(looks)에서 "흑백" 으로 씁니다
+    newFilter({id:"plainbw", name:"일반 흑백", enabled:false, saturate:0, smooth:48, detail:74})
   ];
 }
 var BLEND_MODES = [
@@ -407,6 +410,11 @@ function migrate(cfg){
     }
     (cfg.layouts || []).forEach(function(l){ if (l.looks) l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ]; });
   }
+  // 인스탁스 와이드 흑백은 일반 흑백(plainbw)으로 바꿨습니다(사용자 요청). 보정을 붙이고 와이드 고르기 목록을 바꿉니다. 한 번만
+  if (cfg.version < 37 && Array.isArray(cfg.filters)){
+    if (!cfg.filters.some(function(f){ return f.id === "plainbw"; })) cfg.filters.push(defaultFilters()[3]);
+    (cfg.layouts || []).forEach(function(l){ if (l.instax) l.looks = [ {id:"none", name:"원본"}, {id:"plainbw", name:"흑백"}, {id:"vivid", name:"비비드"} ]; });
+  }
   // "원본"(none)은 늘 손대지 않은 사진이고 보정 목록 맨 앞입니다. PC 에서 원본이 빠지거나 값이 바뀌어
   // 원본·인스탁스가 흑백으로 나온 적이 있습니다(2026-11-26, 사용자 요청). 켤 때마다 기본값으로 되돌립니다. 다른 보정은 그대로 둡니다
   if (Array.isArray(cfg.filters) && cfg.filters.length){
@@ -414,7 +422,7 @@ function migrate(cfg){
     if (nIdx >= 0) cfg.filters.splice(nIdx, 1);
     cfg.filters.unshift(defaultFilters()[0]);
   }
-  if (cfg.version >= 8){ cfg.version = 36; return cfg; }
+  if (cfg.version >= 8){ cfg.version = 37; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
