@@ -7,7 +7,7 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 35,
+    version: 36,
     brand: "STUDIO 042",
     timer: 5,
     filter: "none",
@@ -48,7 +48,7 @@ function defaultConfig(){
          가운데를 자르면 2.5×7 띠가 두 장 나옵니다. 색은 손님이 원본·흑백(다른 프레임과 같은 흑백 "mono") 중에 고릅니다(looks). */
       {
         id: "bw3", name: "흑백 3컷 띠", enabled: true, instax: false, style: "bw", shots: 8,
-        looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
+        looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:1500, h:2100 },
         frame: null,
         slots: [
@@ -123,7 +123,7 @@ function defaultConfig(){
          오른쪽 맞춤은 글자 사이 간격(ls)이 마지막 글자 뒤에도 붙어서 6~8 더 바깥으로 줘야 양쪽 끝에서 같은 거리(약 19)가 됩니다.
          1컷은 문구가 하나라 그대로입니다. 끝에서 18 이상 띄워 필름 창이 가리는 가장자리(긴 쪽 약 11)를 피합니다. */
       {
-        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
+        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -135,7 +135,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
+        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:1260, h:840 },
         frame: null,
         slots: [
@@ -149,7 +149,7 @@ function defaultConfig(){
         cut: { on:false, x:630, color:"#D8D0CA" }
       },
       {
-        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
+        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -161,7 +161,7 @@ function defaultConfig(){
         cut: { on:false, x:420, color:"#D8D0CA" }
       },
       {
-        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ],
+        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true, shots: 4, looks: [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ],
         canvas: { w:840, h:1260 },
         frame: null,
         slots: [
@@ -183,6 +183,7 @@ function defaultConfig(){
    smooth = 피부 보정, tint = 색감 덧씌우기, fade = 먹색 띄우기 */
 /* builtin: 앱에 들어 있는 표(값은 따로 받은 파일의 전역 변수, 예: luts/bw05.js 의 BW05_LUT_DATA). 설정에는 이름만 저장해 가볍게 둡니다 */
 var BW05_LUT = { id:"bw05", name:"흑백 05", kind:"cube", size:33, builtin:"BW05_LUT_DATA" };
+var VIVID_LUT = { id:"vivid01", name:"비비드", kind:"cube", size:33, builtin:"VIVID01_LUT_DATA" };   // luts/vivid01.js (진한 빈티지 화보 느낌, 사용자 요청)
 function newFilter(over){
   var f = {
     id:"F"+Date.now(), name:"새 보정", enabled:true,
@@ -198,7 +199,9 @@ function defaultFilters(){
     newFilter({id:"none",   name:"원본"}),
     // 흑백 = 릴스 부스 흑백(하얀 피부·갈색빛 검정·빛 번짐·입자, reelBwInto, 밝기 -5). 예전 포토샵 "흑백 05" 표를 바꿨습니다(사용자 요청).
     // 인생네컷·폴라로이드·흑백 3컷 색 고르기에서 원본 바로 옆
-    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true})
+    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true}),
+    // 비비드 = 진한 빈티지 화보(주황빛 빨강, 깊은 파랑, 황금빛 피부, 강한 대비). 색은 표(luts/vivid01.js)가 정합니다(사용자 요청, 2026-11-26)
+    newFilter({id:"vivid",  name:"비비드",   lut:VIVID_LUT, lutAmount:100})
   ];
 }
 var BLEND_MODES = [
@@ -396,6 +399,14 @@ function migrate(cfg){
     if (!cfg.filters.some(function(f){ return f.id === "mono"; })) cfg.filters.push(defaultFilters()[1]);
     if (cfg.filter !== "mono") cfg.filter = "none";
   }
+  // 비비드를 넣었습니다(사용자 요청). 보정 목록 흑백 다음에 붙이고, 흑백 3컷·인스탁스 고르기에도 넣습니다(모든 프레임 같게). 한 번만
+  if (cfg.version < 36 && Array.isArray(cfg.filters)){
+    if (!cfg.filters.some(function(f){ return f.id === "vivid"; })){
+      var mIdx = cfg.filters.map(function(f){ return f.id; }).indexOf("mono");
+      cfg.filters.splice(mIdx >= 0 ? mIdx+1 : cfg.filters.length, 0, defaultFilters()[2]);
+    }
+    (cfg.layouts || []).forEach(function(l){ if (l.looks) l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"}, {id:"vivid", name:"비비드"} ]; });
+  }
   // "원본"(none)은 늘 손대지 않은 사진이고 보정 목록 맨 앞입니다. PC 에서 원본이 빠지거나 값이 바뀌어
   // 원본·인스탁스가 흑백으로 나온 적이 있습니다(2026-11-26, 사용자 요청). 켤 때마다 기본값으로 되돌립니다. 다른 보정은 그대로 둡니다
   if (Array.isArray(cfg.filters) && cfg.filters.length){
@@ -403,7 +414,7 @@ function migrate(cfg){
     if (nIdx >= 0) cfg.filters.splice(nIdx, 1);
     cfg.filters.unshift(defaultFilters()[0]);
   }
-  if (cfg.version >= 8){ cfg.version = 35; return cfg; }
+  if (cfg.version >= 8){ cfg.version = 36; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
