@@ -2915,6 +2915,7 @@ function setTheme(t){
   if (["light","vintage","dark"].indexOf(t) < 0) t = "dark";
   CFG.theme = t;
   document.body.dataset.theme = t;
+  try { localStorage.setItem("self042-theme", t); } catch(e){}   // 다음에 켤 때 설정을 읽기 전부터 이 디자인으로(index.html)
   Array.prototype.forEach.call($("themePick").children, function(b){
     b.classList.toggle("primary", b.dataset.theme === t);
   });
@@ -3826,6 +3827,7 @@ kvGet("config").then(function(saved){
     saveConfig();
   }
 }).catch(function(){}).then(function(){
+  document.body.classList.remove("booting");   // 한 작업 안에서 아래까지 그리므로 중간 모습은 보이지 않습니다. 맨 앞에 두어 아래에서 오류가 나도 화면이 숨겨진 채 남지 않게
   CFG.filters = allFilters();
   if (!filterById(CFG.filter) || shownFilters().map(function(f){return f.id;}).indexOf(CFG.filter)<0)
     CFG.filter = shownFilters()[0].id;

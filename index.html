@@ -34,6 +34,7 @@ body{
 }
 img{max-width:100%}
 [hidden]{display:none!important}
+body.booting #setup > *{visibility:hidden}   /* 설정을 읽는 동안 첫 화면 내용 숨김(app.js 가 끝나면 booting 을 뺍니다) */
 
 .screen{
   position:fixed; inset:0; display:flex; flex-direction:column;
@@ -489,7 +490,10 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 </style>
 <style id="pageSize">@page{ size:4in 6in; margin:0 }</style>
 </head>
-<body>
+<body class="booting">
+<!-- 켤 때 버벅임 고침: 저장된 설정을 읽기 전에는 기본(다크) 화면에 제목 두 줄만 잠깐 보였다가 밝은 화면으로 바뀌었습니다.
+     지난번 화면 디자인을 먼저 입히고, 첫 화면 내용은 준비가 끝날 때까지(booting) 숨깁니다 -->
+<script>try{ var t0 = localStorage.getItem("self042-theme"); if (t0) document.body.dataset.theme = t0; }catch(e){}</script>
 
 <!-- 1. 손님 시작 -->
 <section class="screen" id="setup">
