@@ -7,10 +7,10 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 34,
+    version: 35,
     brand: "STUDIO 042",
     timer: 5,
-    filter: "bright",
+    filter: "none",
     blurPx: 17,          // 잡티 흐림 반지름 — 카메라 사진(긴 쪽 1600px) 기준 가우시안 px
     slim: { amount:0, x:50, y:45, size:35 },   // 얼굴 줄이기(유동화) — 세기, 가운데 위치 %, 범위 %
     cameraId: null,
@@ -198,22 +198,7 @@ function defaultFilters(){
     newFilter({id:"none",   name:"원본"}),
     // 흑백 = 릴스 부스 흑백(하얀 피부·갈색빛 검정·빛 번짐·입자, reelBwInto, 밝기 -5). 예전 포토샵 "흑백 05" 표를 바꿨습니다(사용자 요청).
     // 인생네컷·폴라로이드·흑백 3컷 색 고르기에서 원본 바로 옆
-    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true}),
-    newFilter({id:"bright", name:"화사하게", brightness:105, contrast:101, saturate:108, smooth:55, detail:72}),
-    newFilter({id:"soft",   name:"뽀샤시",   brightness:108, contrast:97,  saturate:104, smooth:85, detail:58, fade:14,
-                            tint:{color:"#FFD9C2", mode:"soft-light", amount:18}}),
-    newFilter({id:"film",   name:"필름",     brightness:102, contrast:105, saturate:92, sepia:20,
-                            smooth:40, detail:76, fade:16, vignette:22,
-                            tint:{color:"#FF9E5E", mode:"soft-light", amount:22}}),
-    // 흑백 3컷 띠 프레임 전용(look). 포토샵 "흑백 느낌"(대비 +10, 검은 곳 띄움 12, 흰 곳 235, 푸른빛 4)에 가깝게 맞췄습니다.
-    newFilter({id:"bwstrip", name:"흑백 띠", enabled:false, saturate:0, contrast:110, brightness:97, smooth:40, detail:74, fade:10,
-                            tint:{color:"#8FB8E8", mode:"soft-light", amount:4}}),
-    newFilter({id:"cool",   name:"쿨톤",     brightness:103, contrast:102, saturate:96, smooth:58, detail:70,
-                            tint:{color:"#8FB8E8", mode:"soft-light", amount:24}}),
-    // 사진 고르기 화면의 색감 버튼(pick). 촬영 화면의 보정 버튼에는 안 나오게 enabled 는 끕니다.
-    newFilter({id:"look-color", name:"컬러",  enabled:false, pick:true, smooth:0}),
-    newFilter({id:"look-mono",  name:"흑백",  enabled:false, pick:true, smooth:0, saturate:0, contrast:110}),
-    newFilter({id:"look-sepia", name:"세피아", enabled:false, pick:true, smooth:0, sepia:85, saturate:92, contrast:104, brightness:102, fade:8})
+    newFilter({id:"mono",   name:"흑백",     smooth:48, detail:74, reelbw:true})
   ];
 }
 var BLEND_MODES = [
@@ -405,6 +390,12 @@ function migrate(cfg){
   if (cfg.version < 34 && cfg.layouts){
     cfg.layouts.forEach(function(l){ if (l.instax) l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ]; });
   }
+  // 보정은 쓰는 것(원본·흑백)만 남기고 지웠습니다(화사하게·뽀샤시·필름·흑백 띠·쿨톤·고르기 화면 컬러/흑백/세피아, 관리자에서 만든 것, 사용자 요청). 한 번만
+  if (cfg.version < 35 && Array.isArray(cfg.filters)){
+    cfg.filters = cfg.filters.filter(function(f){ return f.id === "none" || f.id === "mono"; });
+    if (!cfg.filters.some(function(f){ return f.id === "mono"; })) cfg.filters.push(defaultFilters()[1]);
+    if (cfg.filter !== "mono") cfg.filter = "none";
+  }
   // "원본"(none)은 늘 손대지 않은 사진이고 보정 목록 맨 앞입니다. PC 에서 원본이 빠지거나 값이 바뀌어
   // 원본·인스탁스가 흑백으로 나온 적이 있습니다(2026-11-26, 사용자 요청). 켤 때마다 기본값으로 되돌립니다. 다른 보정은 그대로 둡니다
   if (Array.isArray(cfg.filters) && cfg.filters.length){
@@ -412,7 +403,7 @@ function migrate(cfg){
     if (nIdx >= 0) cfg.filters.splice(nIdx, 1);
     cfg.filters.unshift(defaultFilters()[0]);
   }
-  if (cfg.version >= 8){ cfg.version = 34; return cfg; }
+  if (cfg.version >= 8){ cfg.version = 35; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
