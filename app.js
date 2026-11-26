@@ -7,14 +7,14 @@
    ══════════════════════════════════════════ */
 function defaultConfig(){
   return {
-    version: 31,
+    version: 32,
     brand: "STUDIO 042",
     timer: 5,
     filter: "bright",
     blurPx: 17,          // 잡티 흐림 반지름 — 카메라 사진(긴 쪽 1600px) 기준 가우시안 px
     slim: { amount:0, x:50, y:45, size:35 },   // 얼굴 줄이기(유동화) — 세기, 가운데 위치 %, 범위 %
     cameraId: null,
-    // 인스탁스는 이 아이패드 부스에서 쓰지 않습니다(사용자 요청). 주소를 비워 두어 인스탁스 화면이 안 나옵니다.
+    // 인스탁스 와이드도 이 부스에서 뽑습니다(첫 화면 "인스탁스 와이드"). 인화 맥 주소는 엡손과 같이 씁니다. 실시간 받기(live)는 쓰지 않습니다.
     instax: { relay:"", live:false },
     shootMode: "pick",   // 한 팀 10장 찍고 골라 넣기(사용자 요청)
     theme: "dark",       // 손님 화면 디자인: light 밝음 / vintage 빈티지 / dark 다크 시크 (관리자에서 고름, 사용자 요청)
@@ -111,6 +111,100 @@ function defaultConfig(){
           {x:1471, y:828, w:338, h:535, shot:5}
         ],
         texts: []
+      },
+      /* 인스탁스 프레임 (instax:true) — 와이드 링크로 보내는 1260 × 840 그대로입니다.
+         필름의 흰 테두리가 곧 액자라서 사진은 끝까지 채우고, 컷 사이에도 경계선이 없습니다(사용자 요청).
+         필름 쪽으로 얇은 흰 띠(46)를 두고 이름을 아주 작게(12) 넣습니다(MEI 부스처럼). 사진을 키우려고 80 → 60 → 46 으로 줄였습니다(사용자 요청).
+         필름 창이 가장자리를 조금 가립니다(긴 쪽 양끝 약 11, 짧은 쪽 양끝 약 32). 띠 46 중 보이는 건 14 쯤이고, 글자 높이 약 9 를 그 가운데 둡니다.
+         가로: 사진 0~794, 아래 띠 794~840 에 이름(왼쪽 x 26), 글자 바닥 y 805.
+         세로: 왼쪽 띠 0~46, 사진 46~840. 이름은 위에서 아래로 읽게 돌려(rot 90, 글자 윗부분이 사진 쪽) x 35, 위 끝에서 시작(사용자 요청).
+         2·4컷은 문구가 둘입니다(사용자 요청). 가로는 왼쪽 문구를 왼쪽 맨 끝(x 18), 오른쪽 문구를 오른쪽 맨 끝(x 1250 오른쪽 맞춤)에 두고,
+         세로는 둘 다 왼쪽 띠에서 하나는 맨 위(y 18)에서 시작, 하나는 맨 아래 끝(y 1250, 오른쪽 맞춤)에 맞춥니다.
+         오른쪽 맞춤은 글자 사이 간격(ls)이 마지막 글자 뒤에도 붙어서 6~8 더 바깥으로 줘야 양쪽 끝에서 같은 거리(약 19)가 됩니다.
+         1컷은 문구가 하나라 그대로입니다. 끝에서 18 이상 띄워 필름 창이 가리는 가장자리(긴 쪽 약 11)를 피합니다. */
+      {
+        id: "wl1", name: "와이드 가로 1컷", enabled: true, instax: true,
+        canvas: { w:1260, h:840 },
+        frame: null,
+        slots: [
+          {x:0, y:0, w:1260, h:794, shot:0}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:26, y:805, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111"}
+        ],
+        cut: { on:false, x:630, color:"#D8D0CA" }
+      },
+      {
+        id: "wl2", name: "와이드 가로 2컷", enabled: true, instax: true,
+        canvas: { w:1260, h:840 },
+        frame: null,
+        slots: [
+          {x:0, y:0, w:630, h:794, shot:0},
+          {x:630, y:0, w:630, h:794, shot:1}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:18, y:805, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111"},
+          {content:"042 STUDIO  -  DAEJEON", x:1250, y:805, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111"}
+        ],
+        cut: { on:false, x:630, color:"#D8D0CA" }
+      },
+      {
+        id: "wl4", name: "와이드 가로 4컷", enabled: true, instax: true,
+        canvas: { w:1260, h:840 },
+        frame: null,
+        slots: [
+          {x:0, y:0, w:630, h:397, shot:0},
+          {x:630, y:0, w:630, h:397, shot:1},
+          {x:0, y:397, w:630, h:397, shot:2},
+          {x:630, y:397, w:630, h:397, shot:3}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:18, y:805, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111"},
+          {content:"042 STUDIO  -  DAEJEON", x:1250, y:805, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111"}
+        ],
+        cut: { on:false, x:630, color:"#D8D0CA" }
+      },
+      {
+        id: "wp1", name: "와이드 세로 1컷", enabled: true, instax: true,
+        canvas: { w:840, h:1260 },
+        frame: null,
+        slots: [
+          {x:46, y:0, w:794, h:1260, shot:0}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:35, y:18, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111", rot:90}
+        ],
+        cut: { on:false, x:420, color:"#D8D0CA" }
+      },
+      {
+        id: "wp2", name: "와이드 세로 2컷", enabled: true, instax: true,
+        canvas: { w:840, h:1260 },
+        frame: null,
+        slots: [
+          {x:46, y:0, w:794, h:630, shot:0},
+          {x:46, y:630, w:794, h:630, shot:1}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:35, y:18, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111", rot:90},
+          {content:"042 STUDIO  -  DAEJEON", x:35, y:1250, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111", rot:90}
+        ],
+        cut: { on:false, x:420, color:"#D8D0CA" }
+      },
+      {
+        id: "wp4", name: "와이드 세로 4컷", enabled: true, instax: true,
+        canvas: { w:840, h:1260 },
+        frame: null,
+        slots: [
+          {x:46, y:0, w:397, h:630, shot:0},
+          {x:443, y:0, w:397, h:630, shot:1},
+          {x:46, y:630, w:397, h:630, shot:2},
+          {x:443, y:630, w:397, h:630, shot:3}
+        ],
+        texts: [
+          {content:"042 STUDIO  -  DAEJEON", x:35, y:18, size:12, ls:6, weight:700, font:"body", align:"left", color:"#111111", rot:90},
+          {content:"042 STUDIO  -  DAEJEON", x:35, y:1250, size:12, ls:6, weight:700, font:"body", align:"right", color:"#111111", rot:90}
+        ],
+        cut: { on:false, x:420, color:"#D8D0CA" }
       }
     ]
   };
@@ -328,7 +422,13 @@ function migrate(cfg){
     });
     (cfg.layouts || []).forEach(function(l){ if (l.id === "bw3") l.looks = [ {id:"none", name:"원본"}, {id:"mono", name:"흑백"} ]; });
   }
-  if (cfg.version >= 8){ cfg.version = 31; return cfg; }
+  // 인스탁스 와이드를 다시 넣었습니다(사용자 요청, 첫 화면에서 포토부스 인화·인스탁스 와이드 고르기).
+  // 저장된 옛 와이드 프레임은 빼고 photoboo 와 같은 6개를 맨 뒤에 붙입니다. 한 번만
+  if (cfg.version < 32 && cfg.layouts){
+    cfg.layouts = cfg.layouts.filter(function(l){ return !l.instax; })
+      .concat(defaultConfig().layouts.filter(function(d){ return d.instax; }));
+  }
+  if (cfg.version >= 8){ cfg.version = 32; return cfg; }
 
   // 예전 보정은 이름만 있었습니다. 같은 이름의 새 보정으로 바꿔 끼웁니다.
   if (!Array.isArray(cfg.filters) || !cfg.filters.length){
@@ -444,7 +544,7 @@ $("confirmYes").addEventListener("click", function(){
 function show(el){ [setupEl,shootEl,pickEl,stickerEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
   if (el===setupEl && typeof showStep==="function"){
     frameColorId = null;   // 다음 손님은 예전 색부터
-    showStep(1); orientFixed = false; syncIdle();
+    showStep(firstStep()); orientFixed = false; syncIdle();
   }
   // 인스탁스는 고르기·결과 화면을 필름 모양으로 보여주고, 아래에 프린터 상태를 띄웁니다
   var film = instaxOn() && (el===pickEl || el===resultEl);
@@ -550,9 +650,44 @@ function orientList(L){
   var a = enabledLayouts().filter(function(l){ return ORIENT_GROUP.indexOf(l.id) >= 0; });
   return a.length > 1 ? a : [];
 }
+/* 인스탁스 와이드 필름 108 × 86mm 에 사진 창 99 × 62mm. 세로로 들면 두꺼운 띠(18mm)가 왼쪽입니다(photoboo 와 같음). */
+var FILM_MINI = {
+  h: { canvas:{w:1080, h:860}, slots:[{x:45,  y:60, w:990, h:620}] },
+  v: { canvas:{w:860, h:1080}, slots:[{x:180, y:45, w:620, h:990}] }
+};
+/* 0단계: "epson" 포토부스 인화(5×7) · "instax" 인스탁스 와이드. 둘 다 켜져 있을 때만 고르게 합니다 */
+var kind = "epson";
+function kindOK(){ return normalLayouts().length > 0 && instaxOrients().length > 0; }
+function firstStep(){ return kindOK() ? 0 : 1; }
+function buildKinds(list){
+  var films = instaxOrients();
+  $("kindPick").innerHTML =
+    '<button class="mode" data-k="epson"><span class="kind-art">'+list.slice(0,3).map(function(L){ return miniHtml(L); }).join("")+'</span>'+
+      '<span style="min-width:0"><span class="mode-name">포토부스 인화</span><br><span class="mode-sub">5×7 사진으로 뽑습니다</span></span></button>'+
+    '<button class="mode" data-k="instax"><span class="kind-art">'+films.map(function(o){ return miniHtml(FILM_MINI[o]); }).join("")+'</span>'+
+      '<span style="min-width:0"><span class="mode-name">인스탁스 와이드</span><br><span class="mode-sub">즉석 필름 · '+
+      films.map(function(o){ return o==="h" ? "가로" : "세로"; }).join("·")+'</span></span></button>';
+}
+$("kindPick").addEventListener("click", function(e){
+  var b = e.target.closest(".mode"); if (!b) return;
+  kind = b.dataset.k; cur = 0;
+  buildModes(); showStep(1);
+});
 function buildModes(){
   var list = normalLayouts();
-  if (!list.length){ $("modes").innerHTML = '<p class="note">보이도록 켜둔 인화 방식이 없습니다. 관리자 화면에서 켜주세요.</p>'; return; }
+  if (!list.length && !instaxOrients().length){ $("modes").innerHTML = '<p class="note">보이도록 켜둔 인화 방식이 없습니다. 관리자 화면에서 켜주세요.</p>'; return; }
+  if (!kindOK()) kind = list.length ? "epson" : "instax";
+  buildKinds(list);
+  if (kind === "instax"){   // 인스탁스: 가로·세로 카드. 누르면 그 방향 와이드 프레임만 씁니다(컷 수는 찍은 뒤 고르기 화면에서)
+    instaxOrient = null;
+    $("modes").innerHTML = instaxOrients().map(function(o){
+      return '<button class="mode" data-o="'+o+'" aria-pressed="false">'+miniHtml(FILM_MINI[o])+
+        '<span style="min-width:0"><span class="mode-name">인스탁스 '+(o==="h" ? "가로" : "세로")+'</span><br>'+
+        '<span class="mode-sub">찍고 나서 '+instaxFrames(o).map(shotCount).join("·")+'컷 고르기</span></span></button>';
+    }).join("");
+    syncIdle();
+    return;
+  }
   instaxOrient = null;
   if (cur >= list.length) cur = 0;
   var curL = list[cur];
@@ -686,8 +821,8 @@ function pressOnly(host, value){
    1·2단계는 누르면 바로 넘어가서 "다음" 버튼이 없습니다.
    올려둔 배경이 없으면 2단계(없음 하나뿐)를 건너뜁니다.
    인스탁스는 늘 많이 찍고 고르니 촬영 방식 버튼을 숨깁니다. */
-/* 1.5 = 방향 고르기(폴라로이드 6컷만). 고를 것이 없는 단계는 가던 쪽으로 건너뜁니다 */
-var step = 1, STEPS = [1, 1.5, 2, 3];
+/* 0 = 포토부스 인화·인스탁스 와이드 고르기. 1.5 = 방향 고르기(폴라로이드 6컷만). 고를 것이 없는 단계는 가던 쪽으로 건너뜁니다 */
+var step = 1, STEPS = [0, 1, 1.5, 2, 3];
 function stepOK(n){
   if (n === 1.5) return orientList(enabledLayouts()[cur]).length > 0;
   if (n === 2) return allBackgrounds().length > 0;
@@ -702,17 +837,17 @@ function showStep(n){
     el.hidden = Number(el.dataset.step) !== step;
   });
   $("shootModes").hidden = $("shootModesTitle").hidden = true;   // 셀프042 는 10장 찍고 고르기만 씁니다
-  $("backBtn").hidden  = step === 1;
+  $("backBtn").hidden  = step === firstStep();
   $("startBtn").hidden = step !== 3;
   $("shotNote").hidden = step !== 3;
-  document.querySelector("#setup .setup-head").hidden = step !== 1;   // SELF PHOTO BOOTH · STUDIO 042 는 첫 화면에만(사용자 요청)
+  document.querySelector("#setup .setup-head").hidden = step > 1;   // SELF PHOTO BOOTH · STUDIO 042 는 첫 화면(0·1단계)에만(사용자 요청)
 }
 $("backBtn").addEventListener("click", function(){ showStep(STEPS[STEPS.indexOf(step)-1]); });
 /* 첫 화면(대기 화면)은 가로·세로 고르기입니다(사용자 요청). 맥에서 실시간으로 받는 중이면 카드를 누르는 순간 그 방향으로
    바로 사진 고르기 화면으로 가고(가로·세로 버튼은 고르기 화면에 두지 않습니다), 아니면 예전처럼 배경·보정·카메라 순서로 갑니다.
    관리자 화면은 이 화면 맨 위 이름 글씨를 길게 눌러 엽니다. */
 function syncIdle(){
-  $("step1Title").textContent = "프레임 골라주세요.";
+  $("step1Title").textContent = kind === "instax" ? "방향을 골라주세요." : "프레임 골라주세요.";
 }
 
 $("modes").addEventListener("click", function(e){
@@ -1851,6 +1986,7 @@ function openPick(L, need, imported){
   $("pickOrient").hidden = !P.imported || orientFixed;
   pickEl.classList.toggle("withOrient", !$("pickOrient").hidden);   // 가로·세로 버튼이 있으면 필름을 조금 작게(자리 확보)
   if (P.imported && !orientFixed) buildChips($("pickOrient"), instaxOrients().map(function(o){ return {id:o, name:o==="h" ? "가로" : "세로"}; }), instaxOrient, false);
+  if (instaxOn()){ pickChips(); printerStatus(); }   // 인스탁스: 1·2·4컷 버튼, 아래에 프린터 상태(photoboo 와 같음)
   pickLookId = null; lookChips();      // 손님마다 첫 번째 색감에서 시작합니다
   $("pickGrid").innerHTML = "";
   S.shots.forEach(function(c, i){ addPickThumb(c, i); });
@@ -1866,7 +2002,7 @@ function refreshPick(){
   });
   $("pickTitle").textContent = "마음에 드는 사진을 골라주세요 · "+P.picks.length+" / "+P.need;
   $("pickDone").disabled = P.picks.length < P.need;
-  $("pickDone").textContent = instaxOn() ? "인화하기" : "이 사진으로 완성";
+  $("pickDone").textContent = "이 사진으로 완성";   // 인스탁스도 스티커·결과 화면을 거쳐 인화합니다(포토부스와 같은 순서)
   renderPick();
 }
 /* 미리보기만 다시 그립니다. 그리는 중에 또 부르면(끌어 옮기는 중) 지금 것이 끝난 뒤 한 번만 더 그립니다. */
@@ -2487,6 +2623,7 @@ $("mirrorBtn").addEventListener("click", function(){
 /* 인쇄는 웹 페이지(window.print)가 아니라 사진 파일을 공유 창으로 보냅니다. 손님이 "프린트" 를 고르면 사진 앱에서 뽑듯이 나가서
    사파리가 붙이는 날짜·주소가 없고 한 장에 맞춰집니다(아이패드 시험에서 두 장으로 나뉘고 날짜·주소가 찍혀 바꿈, 사용자 요청). */
 $("printBtn").addEventListener("click", function(){
+  if (instaxOn()){ printInstax(); return; }   // 인스탁스 와이드는 맥의 인스탁스 프린터로(POST /print)
   if (relayUrl()){ printEpson(); return; }   // 맥 주소가 있으면 맥이 엡손으로 바로 뽑습니다(인쇄 창 없음)
   if (!shareResult()) window.print();   // 공유를 못 하는 브라우저(맥 등)는 예전처럼 인쇄 창
 });
@@ -2705,6 +2842,47 @@ function printEpson(){
 
 /* 인화 맥(instax/relay) 주소 */
 function relayUrl(){ return ((CFG.instax && CFG.instax.relay) || "").trim().replace(/\/+$/, ""); }
+/* ── 인스탁스 인화 — 맥의 인화 서버(instax/relay, POST /print)로 보내 블루투스로 뽑습니다(photoboo 에서 가져옴) ── */
+/* 프린터 상태 한 줄 — 남은 필름과 배터리. 맥을 거쳐 블루투스로 묻습니다(몇 초 걸립니다). */
+function fetchStatus(){
+  return fetch(relayUrl()+"/status").then(function(r){ return r.json(); }).then(function(j){
+    if (!j.ok) throw new Error(j.error || "프린터를 찾지 못했습니다.");
+    return j;
+  });
+}
+function printerStatus(){
+  var el=$("printerLine");
+  if (!relayUrl()) return;
+  el.className = ""; el.textContent = "프린터 확인 중";
+  fetchStatus().then(function(j){
+    var p = j.printer || {};
+    el.className = "ok";
+    el.textContent = p.film_remaining !== undefined
+      ? "프린터 준비 · 남은 필름 "+p.film_remaining+"장 · 배터리 "+p.battery+"%"
+      : "프린터 준비";
+  }).catch(function(){ el.className = "bad"; el.textContent = "프린터 연결 안 됨"; });
+}
+function printInstax(){
+  if (!S.blob || S.printing || S.printed) return;
+  var url = relayUrl();
+  if (!url){ say("관리자 화면에 인화 맥 주소를 넣어주세요.", 6000); return; }
+  S.printing = true; syncPrintBtn(); say("인화하는 중입니다…", 0);
+  fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
+      // 한 번 뽑으면 다시 찍기 전까지 막습니다. 필름을 아끼려는 것입니다.
+      S.printed = true;
+      say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
+      printerStatus();   // 남은 필름 수를 새로 읽습니다
+    })
+    .catch(function(e){
+      say(e instanceof TypeError
+        ? "인화 맥에 연결하지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인하세요."
+        : "인화하지 못했습니다. "+e.message, 9000);
+    })
+    .then(function(){ S.printing = false; syncPrintBtn(); });
+}
 function syncPrintBtn(){
   var b=$("printBtn");
   var direct = instaxOn() || !!relayUrl();   // 맥으로 바로 뽑는 경우(인스탁스·엡손)
@@ -3686,7 +3864,7 @@ kvGet("config").then(function(saved){
   buildChips($("shootModes"), SHOOT_MODES, CFG.shootMode||"fixed", false);
   buildModes();
   buildBgPick();
-  showStep(1);
+  showStep(firstStep());
   var L0 = enabledLayouts()[0];
   if (L0) setPrintPage(L0);
 });
