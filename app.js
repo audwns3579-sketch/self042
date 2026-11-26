@@ -2892,6 +2892,33 @@ function printerStatus(){
       : "프린터 준비";
   }).catch(function(){ el.className = "bad"; el.textContent = "프린터 연결 안 됨"; });
 }
+/* 인스탁스 필름은 모니터보다 밝은 쪽을 못 버텨서, 거의 흰 곳(흑백의 얼굴)이 종이색으로 날아갔습니다(사용자 시험 인화, 2026-11-26).
+   인스탁스로 보낼 때만 사진 칸 안의 밝기 0.55 위를 부드럽게 눌러 가장 밝은 흰색을 235 로 보냅니다(0.8→0.78, 0.9→0.85, 1→0.92).
+   아래 흰 이름 띠는 필름 테두리와 같은 흰색으로 둡니다. 화면·QR·엡손 인쇄는 그대로입니다(사용자 요청 A). 0.55 아래는 바꾸지 않습니다 */
+var INSTAX_KNEE = 0.55, INSTAX_WHITE = 235;
+function instaxTone(blob, L){
+  return new Promise(function(res){
+    var img=new Image(), u=URL.createObjectURL(blob);
+    img.onload=function(){
+      URL.revokeObjectURL(u);
+      var c=document.createElement("canvas"); c.width=img.width; c.height=img.height;
+      var x=c.getContext("2d"); x.drawImage(img,0,0);
+      var t=new Uint8ClampedArray(256), k=INSTAX_KNEE, b=(1-INSTAX_WHITE/255)/((1-k)*(1-k)), i;
+      for (i=0;i<256;i++){ var v=i/255; t[i]=Math.round(255*(v<=k ? v : v-b*(v-k)*(v-k))); }
+      var sx=c.width/((L && L.canvas.w) || c.width), sy=c.height/((L && L.canvas.h) || c.height);
+      ((L && L.slots) || [{x:0, y:0, w:c.width, h:c.height}]).forEach(function(s){   // 사진 칸만
+        var x0=Math.max(0,Math.round(s.x*sx)), y0=Math.max(0,Math.round(s.y*sy)), w=Math.min(c.width,Math.round((s.x+s.w)*sx))-x0, h=Math.min(c.height,Math.round((s.y+s.h)*sy))-y0;
+        if (w<=0 || h<=0) return;
+        var d=x.getImageData(x0,y0,w,h), p=d.data;
+        for (var j=0;j<p.length;j+=4){ p[j]=t[p[j]]; p[j+1]=t[p[j+1]]; p[j+2]=t[p[j+2]]; }
+        x.putImageData(d,x0,y0);
+      });
+      c.toBlob(function(o){ free(c); res(o || blob); }, "image/jpeg", 0.95);
+    };
+    img.onerror=function(){ URL.revokeObjectURL(u); res(blob); };   // 못 읽으면 그대로 보냅니다
+    img.src=u;
+  });
+}
 function printInstax(){
   if (!S.blob || S.printing || S.printed) return;
   var url = relayUrl();
@@ -2899,7 +2926,8 @@ function printInstax(){
   S.printing = true; syncPrintBtn();
   var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 엡손과 같이 인화 모션 → 다 되면 5초 뒤 첫 화면(사용자 요청)
   if (motion) hush(); else say("인화하는 중입니다…", 0);
-  fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
+  instaxTone(S.blob, enabledLayouts()[cur])
+    .then(function(b){ return fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:b }); })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
