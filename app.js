@@ -1613,7 +1613,7 @@ var lastResultUrl = null;
 /* origs: 찍은 원본(jpgs 로 바꾼 글자 목록), plain: 스티커 없는 프레임(blob). 둘 다 아이맥 보관 폴더에만 올립니다(손님 QR 에는 프레임만). */
 function jpgs(list){ return (list||[]).filter(function(c){ return c && c.width; }).map(function(c){ return c.toDataURL("image/jpeg", 0.92).split(",")[1]; }); }
 function setResult(blob, origs, sub, plain){
-  S.blob = blob; S.printed = false;
+  S.blob = blob; S.printed = false; S.printing = false;   // 앞 손님 인화 대답이 아직 안 왔어도 새 손님은 처음부터
   S.sub = sub || stampName(new Date());   // 손님 폴더 이름. 좌우 반전으로 다시 만들어도 같은 폴더에 넣습니다
   if (lastResultUrl) URL.revokeObjectURL(lastResultUrl);
   lastResultUrl = URL.createObjectURL(blob);
@@ -2627,7 +2627,7 @@ $("printBtn").addEventListener("click", function(){
    폴라로이드 6컷 = 흰 종이가 나오는 프린터 실물 영상(machines/printer.mp4, AI 로 만듦)의 종이 위에 손님 인화물을 프레임마다 입힙니다.
    인생네컷·흑백 3컷 = 스테인리스 배출구 사진(machines/steel.jpg)에 그 영상에서 잰 종이 움직임을 그대로 옮겨 그립니다. 카메라 8컷은 없고, 인스탁스는 즉석카메라(pmCamera)입니다.
    가로 인화(폴라로이드 가로)는 실제 용지 방향대로 세로로 돌려(얼굴 위쪽이 오른쪽) 뽑습니다.
-   인화를 보내는 데 성공하면 "인화가 다 됐습니다" 를 띄우고 5초 뒤 첫 화면으로 갑니다. */
+   모션 6초가 끝나면 "인화 중입니다. 카운터로 이동하세요" 를 크게 띄우고 5초 뒤 첫 화면으로 갑니다. 프린터 대답은 기다리지 않습니다(사용자 요청 B). */
 // 즉석카메라 모션(camera)은 인스탁스 와이드에만 씁니다(사용자 요청, 2026-11-26). 나머지는 예전 그대로이고 카메라 8컷은 모션이 없습니다
 var PRINT_MOTION = { film8:"steel", pol6v:"printer", pol6h:"printer", bw3:"steel", wl1:"camera", wl2:"camera", wp1:"camera", wp2:"camera" };
 var PM_SEC = 6, PM_HOME_MS = 5000;
@@ -2780,7 +2780,7 @@ function openPrintMotion(L, blob, onHome, accepted){
   var el=$("printMotion");
   el.className="pm-"+kind;
   el.innerHTML='<div class="pm-stage"><i class="pm-bg"></i><canvas class="pm-cv" aria-label="인화 사진이 나오는 모습"></canvas></div><i class="pm-flash"></i>'+
-    '<div class="pm-side"><p class="pm-status" role="status">인화 중입니다.<br>카운터로 이동해 주세요</p></div>';
+    '<div class="pm-side"><p class="pm-status" role="status">인화 중입니다.<br>카운터로 이동하세요</p></div>';
   el.hidden=false;
   var cv=el.querySelector(".pm-cv"), u=Math.max(innerWidth/1920, innerHeight/1088), dpr=Math.min(window.devicePixelRatio||1, 1.5);
   el.style.setProperty("--u", u+"px");
@@ -2814,7 +2814,7 @@ function openPrintMotion(L, blob, onHome, accepted){
       var t=(performance.now()-t0)/1000;
       x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,cv.width,cv.height); x.setTransform(me.k,0,0,me.k,0,0);
       PM_DRAW[kind](x, Math.min(t,PM_SEC), paper);
-      if (t>=PM_SEC && me.ok){ pmFinish(); return; }
+      if (t>=PM_SEC){ pmFinish(); return; }   // 프린터 대답을 기다리지 않습니다(인스탁스는 다 뽑을 때까지 1분 가까이 걸림, 사용자 요청 B)
       me.raf=requestAnimationFrame(tick);
     })();
   };
@@ -2826,7 +2826,7 @@ function pmFinish(){
   me.done=true;
   var el=$("printMotion");
   el.classList.add("pm-done");
-  el.querySelector(".pm-status").innerHTML="인화가 다 됐습니다.<br>카운터로 이동하세요";
+  el.querySelector(".pm-status").innerHTML="인화 중입니다.<br>카운터로 이동하세요";   // 끝까지 같은 문구(사용자 요청)
   me.timer=setTimeout(function(){ var go=me.onHome; if (go) go(); closePrintMotion(); }, PM_HOME_MS);
 }
 function closePrintMotion(){
@@ -2863,19 +2863,21 @@ function printEpson(){
   // bg: 프레임 바탕색. 맥이 무테 인쇄 영역(종이보다 사방 약 5mm 넓음)만큼 이 색으로 여백을 붙여서 프레임이 종이에 딱 맞습니다
   var L = enabledLayouts()[cur], fc = L && frameColor(L);
   var bg = fc ? fc.bg.slice(1) : !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
+  var mine = S.blob;   // 대답은 첫 화면으로 간 뒤에 올 수 있어서, 지금 손님 것일 때만 화면을 바꿉니다
   fetch(relayUrl()+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:S.blob })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
+      if (S.blob !== mine) return;
       S.printed = true;
-      if (motion && pm) pm.ok = true;   // 모션이 끝나면 "다 됐습니다" → 5초 뒤 첫 화면
       if (!motion) say("프린터로 보냈습니다. 잠시 뒤 사진이 나옵니다.", 8000);
     })
     .catch(function(e){
+      if (S.blob !== mine){ console.warn("앞 손님 인화 실패", e); return; }
       closePrintMotion();
       say("인화를 보내지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인해 주세요.\n("+relayUrl()+" · "+(e && e.message || e)+")", 0);
     })
-    .then(function(){ S.printing = false; syncPrintBtn(); });
+    .then(function(){ if (S.blob === mine){ S.printing = false; syncPrintBtn(); } });
 }
 
 /* 인화 맥(instax/relay) 주소 */
@@ -2934,24 +2936,26 @@ function printInstax(){
   S.printing = true; syncPrintBtn();
   var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 엡손과 같이 인화 모션 → 다 되면 5초 뒤 첫 화면(사용자 요청)
   if (motion) hush(); else say("인화하는 중입니다…", 0);
+  var mine = S.blob;   // 인스탁스는 다 뽑은 뒤에 대답해서(1분 가까이) 보통 첫 화면으로 간 뒤에 옵니다. 지금 손님 것일 때만 화면을 바꿉니다
   instaxTone(S.blob, enabledLayouts()[cur])
     .then(function(b){ return fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:b }); })
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
       // 한 번 뽑으면 다시 찍기 전까지 막습니다. 필름을 아끼려는 것입니다.
-      S.printed = true;
-      if (motion && pm) pm.ok = true;
-      if (!motion) say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
       printerStatus();   // 남은 필름 수를 새로 읽습니다
+      if (S.blob !== mine) return;
+      S.printed = true;
+      if (!motion) say("사진이 나오고 있습니다. 색이 다 올라올 때까지 1~2분 기다려 주세요.", 8000);
     })
     .catch(function(e){
+      if (S.blob !== mine){ console.warn("앞 손님 인화 실패", e); return; }
       closePrintMotion();
       say(e instanceof TypeError
         ? "인화 맥에 연결하지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인하세요."
         : "인화하지 못했습니다. "+e.message, 9000);
     })
-    .then(function(){ S.printing = false; syncPrintBtn(); });
+    .then(function(){ if (S.blob === mine){ S.printing = false; syncPrintBtn(); } });
 }
 function syncPrintBtn(){
   var b=$("printBtn");
