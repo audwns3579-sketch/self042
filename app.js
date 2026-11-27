@@ -2592,20 +2592,26 @@ function beautyFaces(cv){
   return out;
 }
 /* 실시간 미리보기 떨림 잡기(사용자 요청): 얼굴 찾기가 매번 몇 픽셀씩 다르게 잡아 출렁여 보여서,
-   새 위치는 30%만 섞고(이전 70%), 눈 사이 거리의 2%보다 작은 흔들림은 무시합니다. 크게 움직이면(30% 넘게) 바로 따라갑니다. */
-var FACE_KEYS = ["e1","e2","n","m","a1","a2"];
+   6점을 한 덩어리로 봅니다. 가장 많이 움직인 점이 눈 사이 거리의 4%보다 덜 움직이면 모두 그대로 두고(점마다 따로 두면 모양이 일그러져 눈이 떨림),
+   넘으면 새 위치를 15%만 섞습니다(2026-11-27, 예전 2%·30%). 크게 움직이면(30% 넘게) 바로 따라갑니다.
+   얼굴을 잠깐 놓쳐도 FACE_HOLD 번(얼굴 찾기는 두 프레임에 한 번이라 약 0.3초) 직전 위치를 써서 뷰티가 꺼졌다 켜지며 울렁이지 않게 합니다. */
+var FACE_KEYS = ["e1","e2","n","m","a1","a2"], FACE_HOLD = 5;
 function smoothFaces(prev, raw){
-  if (!prev || !raw.length || prev.length !== raw.length) return raw;
+  if (!raw.length){
+    if (prev && prev.length && (prev.miss||0) < FACE_HOLD){ var keep = prev.slice(); keep.miss = (prev.miss||0) + 1; return keep; }
+    return raw;
+  }
+  if (!prev || !prev.length) return raw;
   return raw.map(function(f){
     var c={ x:(f.e1.x+f.e2.x)/2, y:(f.e1.y+f.e2.y)/2 }, best=null, bd=1e9;
     prev.forEach(function(p){ var d=Math.hypot((p.e1.x+p.e2.x)/2-c.x, (p.e1.y+p.e2.y)/2-c.y); if (d<bd){ bd=d; best=p; } });
     var ed=Math.hypot(f.e2.x-f.e1.x, f.e2.y-f.e1.y) || 0.01;
     if (!best || bd > ed*0.3) return f;
+    var most=0;
+    FACE_KEYS.forEach(function(k){ most=Math.max(most, Math.hypot(f[k].x-best[k].x, f[k].y-best[k].y)); });
+    if (most < ed*0.04) return best;
     var o={};
-    FACE_KEYS.forEach(function(k){
-      var a=best[k], b=f[k], dx=b.x-a.x, dy=b.y-a.y;
-      o[k] = Math.hypot(dx,dy) < ed*0.02 ? { x:a.x, y:a.y } : { x:a.x+dx*0.3, y:a.y+dy*0.3 };
-    });
+    FACE_KEYS.forEach(function(k){ o[k] = { x:best[k].x+(f[k].x-best[k].x)*0.15, y:best[k].y+(f[k].y-best[k].y)*0.15 }; });
     return o;
   });
 }
@@ -2615,7 +2621,7 @@ function beautyInto(cv, faces){
   var W=cv.width, H=cv.height, ctx=cv.getContext("2d"), img;
   try { img=ctx.getImageData(0,0,W,H); } catch(e){ return; }
   var src=new Uint8ClampedArray(img.data), dst=img.data;
-  var ke=B.eye/100*0.14, km=B.mid/100*0.10, ks=B.slim/100*0.07;   // 100 일 때 눈 14%·중안부 10%·갸름 7% (예전 32·24·16% 는 과하다고 해서 줄임)
+  var ke=B.eye/100*0.14, km=B.mid/100*0.10, ks=B.slim/100*0.10;   // 100 일 때 눈 14%·중안부 10%·갸름 10% (예전 32·24·16% 는 과하다고 해서 줄임, 갸름은 7→10% 사용자 요청 2026-11-27)
   faces.forEach(function(f){
     var e1x=f.e1.x*W, e1y=f.e1.y*H, e2x=f.e2.x*W, e2y=f.e2.y*H, mx=f.m.x*W, my=f.m.y*H, ny=f.n.y*H;
     var d=Math.hypot(e2x-e1x, e2y-e1y); if (d<8) return;
