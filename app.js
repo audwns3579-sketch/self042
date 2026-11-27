@@ -538,6 +538,7 @@ $("confirmYes").addEventListener("click", function(){
 function show(el){ [setupEl,shootEl,pickEl,stickerEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
   if (el===setupEl && typeof showStep==="function"){
     frameColorId = null;   // 다음 손님은 예전 색부터
+    CFG.filter = shownFilters()[0].id;   // 색도 손님마다 원본부터(앞 손님이 흑백·비비드를 골라도, 사용자 요청)
     showStep(firstStep()); orientFixed = false; syncIdle();
   }
   // 인스탁스는 고르기·결과 화면을 필름 모양으로 보여주고, 아래에 프린터 상태를 띄웁니다
@@ -875,11 +876,12 @@ $("brandEdit").addEventListener("input", function(e){
   CFG.brand = e.target.value.trim() || "STUDIO 042"; saveConfig();
 });
 
-/* 이름 길게 누르면 관리자 */
+/* 이름을 4초 꾹 누르면 관리자(사용자 요청, 예전 0.75초). 이름 칸은 readonly 라 손님이 고칠 수 없습니다 */
 (function(){
   var t=null;
   var el=$("brandEdit");
-  var start=function(){ t=setTimeout(function(){ el.blur(); openAdmin(); }, 750); };
+  el.addEventListener("contextmenu", function(e){ e.preventDefault(); });   // 터치로 오래 누르면 뜨는 메뉴가 끼지 않게
+  var start=function(){ t=setTimeout(function(){ el.blur(); openAdmin(); }, 4000); };
   var stop =function(){ clearTimeout(t); };
   ["pointerdown"].forEach(function(ev){ el.addEventListener(ev,start); });
   ["pointerup","pointerleave","pointercancel"].forEach(function(ev){ el.addEventListener(ev,stop); });
@@ -1807,8 +1809,7 @@ function runSession(){
       // 방금 찍은 사진을 오른쪽 아래 PREVIEW 에 칸 모양으로(하루필름처럼, 사용자 요청)
       var pv=$("shootPvC"), s0=L.slots[0] || {w:1,h:1}; pv.width=360; pv.height=Math.round(360*s0.h/s0.w);
       drawCover(pv.getContext("2d"), c, 0, 0, pv.width, pv.height); $("shootPv").hidden=false;
-      // 칸을 채울 만큼 찍었으면 그만 찍고 고르러 갈 수 있습니다
-      if (pick && S.shots.length>=need && S.shots.length<total) $("doneBtn").hidden=false;
+      // "다 찍었어요"는 띄우지 않습니다. 정해진 장 수를 다 찍으면 저절로 고르기로 갑니다(사용자 요청)
       return flash().then(function(){ return wait(700); }).then(function(){ return next(i+1); });
     });
   }
@@ -2086,6 +2087,17 @@ function openPick(L, need, imported){
   show(pickEl);
   fitPick();
   refreshPick();
+  if (P.stop) P.stop();
+  P.stop = countdown($("pickTimer"), pickTimeUp);   // 고르기도 2분(사용자 요청)
+}
+/* 고르기 2분이 끝나면 덜 고른 칸을 찍은 순서대로 채워 완성합니다(사용자 요청) */
+function pickTimeUp(){
+  P.stop = null;
+  if (pickEl.hidden || $("pickDone").disabled && P.picks.length >= P.need) return;   // 이미 완성을 눌러 만드는 중
+  $("confirm").hidden = true; confirmCb = null;   // "처음으로" 확인 창이 떠 있었으면 닫습니다
+  for (var i=0; i<S.shots.length && P.picks.length<P.need; i++) if (P.picks.indexOf(i) < 0) P.picks.push(i);
+  refreshPick();
+  $("pickDone").click();
 }
 function refreshPick(){
   Array.prototype.forEach.call($("pickGrid").children, function(b){
@@ -2191,6 +2203,7 @@ function dragEnd(e){
 $("pickPrev").addEventListener("pointerup", dragEnd);
 $("pickPrev").addEventListener("pointercancel", dragEnd);
 function closePick(){
+  if (P.stop){ P.stop(); P.stop = null; }
   P.token++; $("pickGrid").innerHTML="";
   if (P.url){ URL.revokeObjectURL(P.url); P.url=null; }
   $("pickPrev").removeAttribute("src");
@@ -2533,7 +2546,9 @@ function syncBeautySliders(){ BEAUTY.forEach(function(q){ var e=$("bt_"+q.k); if
 function beautyMode(on){
   $("beautyBox").hidden = !on;
   document.querySelector("#shoot .shoot-l").hidden = on;
-  if (on){ $("shootTimer").hidden = true; beautyDetector(); }
+  // 뷰티 화면은 아래 그만두기 대신 촬영 시작을 두고, 2분이 지나면 촬영을 저절로 시작합니다(사용자 요청)
+  $("beautyGo").hidden = !on; $("cancelBtn").hidden = on;
+  if (on){ stopShootTimer(); S.stopShootTimer = countdown($("shootTimer"), startShooting); beautyDetector(); }
 }
 (function(){
   $("beautySliders").innerHTML = BEAUTY.map(function(q){
@@ -3070,7 +3085,7 @@ function syncPrintBtn(){
   b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
   b.disabled = (direct && sent) || (!!DRIVE_URL && !S.qrOk);   // QR 이 떠야 인화할 수 있습니다(사용자 요청)
   $("mirrorBtn").hidden = !S.res;
-  $("mirrorBtn").disabled = !!(S.printing || S.printed);
+  $("mirrorBtn").disabled = !!(S.printing || S.printed) || (!!DRIVE_URL && !S.qrOk);   // 좌우 반전도 QR 이 뜬 뒤에만
   // 인스탁스는 인화가 주인공입니다. 버튼을 앞으로 빼고 강조합니다.
   b.classList.toggle("primary", instaxOn());
   $("saveBtn").classList.toggle("primary", !instaxOn());
@@ -4037,8 +4052,7 @@ kvGet("config").then(function(saved){
 }).catch(function(){}).then(function(){
   document.body.classList.remove("booting");   // 한 작업 안에서 아래까지 그리므로 중간 모습은 보이지 않습니다. 맨 앞에 두어 아래에서 오류가 나도 화면이 숨겨진 채 남지 않게
   CFG.filters = allFilters();
-  if (!filterById(CFG.filter) || shownFilters().map(function(f){return f.id;}).indexOf(CFG.filter)<0)
-    CFG.filter = shownFilters()[0].id;
+  CFG.filter = shownFilters()[0].id;   // 켤 때도 원본부터(사용자 요청)
   $("brandEdit").value = CFG.brand;
   setTheme(CFG.theme);
   buildSliders();

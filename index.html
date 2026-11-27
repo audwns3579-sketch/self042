@@ -107,6 +107,9 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
   background:none;border:0;border-bottom:1px dashed transparent;color:var(--fg);
   padding:0;width:11ch;max-width:100%;line-height:1.1;text-align:center}
 #brandEdit:focus{outline:none;border-bottom-color:var(--safelight)}
+/* 손님이 이름을 못 고치게 readonly(사용자 요청). 4초 꾹 누르는 동안 글자 선택·밑줄이 안 생기게 */
+#brandEdit[readonly]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:default}
+#brandEdit[readonly]:focus{border-bottom-color:transparent}
 .note{font-size:15px;color:var(--fg);line-height:1.6}
 .note b{color:var(--fg);font-weight:500}
 .field{display:flex;flex-direction:column;gap:18px;align-items:center;width:100%}
@@ -241,6 +244,10 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 /* ── 2-1. 사진 고르기 ─────────────────── */
 #pick{justify-content:flex-start;align-items:center;gap:14px;padding-block:18px;overflow-y:auto}
 #pickTitle{margin-top:auto}
+.pick-timer{position:absolute;top:18px;right:2vw;margin:0;font-size:22px;color:var(--fg)}
+.pick-timer small{font-size:16px;color:var(--muted)}
+.pick-timer b{font-size:30px;color:var(--lamp);font-variant-numeric:tabular-nums}
+.pick-timer .bar{display:none}
 .pick-body{margin-bottom:auto}
 .pick-body{display:flex;gap:36px;align-items:center;justify-content:center;width:100%;flex-wrap:wrap}
 .pick-left,.pick-side{display:flex;flex-direction:column;align-items:center;gap:16px}
@@ -339,10 +346,12 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
     column-gap:56px;row-gap:16px;align-content:center;justify-content:center;justify-items:center}
   #result > .eyebrow{grid-column:1;grid-row:1}
   #resultFilm,#resultImg{grid-column:1;grid-row:2 / span 3}   /* .film 은 display:contents 라 img 가 격자 칸이 됩니다 */
-  #resultImg{max-height:calc(100vh - 170px)}   /* 아래 설명 한 줄 자리 */
+  #resultImg{max-height:calc(100vh - 280px)}   /* 아래 인화·좌우 반전 버튼 자리 */
   #qrBox{grid-column:2;grid-row:2;align-self:end}
-  #result .result-actions{grid-column:2;grid-row:3;flex-direction:column;align-items:stretch;width:100%}
-  #result > .hint{grid-column:1;grid-row:5;align-self:start}   /* 설명은 왼쪽 사진 아래(사용자 요청) */
+  /* 인화·좌우 반전은 사진 바로 아래 한 줄로 크게(사용자 요청). QR 은 오른쪽 그대로 */
+  #result .result-actions{grid-column:1;grid-row:5;gap:20px}
+  #result .result-actions .btn{min-width:320px;min-height:88px;font-size:28px}
+  #result > .hint{grid-column:1;grid-row:6;align-self:start}   /* 설명은 왼쪽 사진 아래(사용자 요청) */
 }
 
 /* ── 인스탁스 — 미리보기를 실제 와이드 필름 모양으로 ──
@@ -361,7 +370,7 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   aspect-ratio:99/62;object-fit:cover;border-radius:0;box-shadow:none;background:#fff}
 #pick.instax .film.v #pickPrev,#result.instax .film.v #resultImg{aspect-ratio:62/99}
 #pick.instax #pickFrames .chip{min-width:72px;justify-content:center;font-size:16px}
-#result.instax #printBtn{order:-1;min-width:160px}
+#result.instax #printBtn{order:-1}
 #printerLine{position:fixed;right:18px;bottom:calc(14px + env(safe-area-inset-bottom,0px));margin:0;z-index:40;
   font-size:11px;letter-spacing:.16em;color:var(--muted)}
 #printerLine::before{content:'●';margin-right:7px;color:var(--muted)}
@@ -500,7 +509,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <!-- 관리자: 이름을 길게 누르면 관리자 화면이 열립니다(README). 손님에게는 안내하지 않습니다. -->
   <div class="setup-head">
     <p class="eyebrow">Self Photo Booth</p>
-    <input id="brandEdit" maxlength="14" aria-label="인화지에 찍힐 이름"
+    <input id="brandEdit" readonly maxlength="14" aria-label="인화지에 찍힐 이름"
            autocomplete="off" autocapitalize="characters" spellcheck="false">
   </div>
   <!-- 0단계: 포토부스 인화(엡손 5×7)·인스탁스 와이드 고르기(사용자 요청, 견본 A). 켜둔 와이드 프레임이 없으면 건너뜁니다 -->
@@ -548,7 +557,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <video id="video" playsinline muted autoplay></video>
     <canvas class="live" id="live"></canvas>
     <div class="lay" id="vignLayer"></div>
-    <div class="ticks" id="ticks"></div>
+    <div class="ticks" id="ticks" hidden></div><!-- 위쪽 막대 표시는 숨김(사용자 요청). 컷 수는 왼쪽 CUT 3 / 10 -->
     <div class="count" id="count" hidden>
       <div class="n" id="countNum">3</div>
       <div class="cue" id="countCue">준비</div>
@@ -565,11 +574,12 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <div id="beautySliders"></div>
     <p class="hint" id="beautyNote"></p>
     <button class="btn" id="beautyReset">처음 값으로</button>
-    <button class="btn primary" id="beautyGo">촬영 시작</button>
   </div>
   <div class="shoot-pv" id="shootPv" hidden><i>PREVIEW</i><canvas id="shootPvC" width="360" height="360"></canvas></div>
   <div class="row" style="justify-content:center">
     <button class="btn primary" id="goBtn">촬영 시작</button>
+    <!-- 뷰티 화면에서는 그만두기 대신 여기 촬영 시작(사용자 요청) -->
+    <button class="btn primary" id="beautyGo" hidden>촬영 시작</button>
     <button class="btn primary" id="doneBtn" hidden>다 찍었어요</button>
     <button class="btn ghost" id="cancelBtn">그만두기</button>
     <button class="btn ghost" id="flipBtn">카메라 전환</button>
@@ -580,6 +590,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 <section class="screen" id="pick" hidden>
   <!-- MEI 부스처럼: 왼쪽에 찍은 사진, 오른쪽에 컷 수 · 인화 미리보기 · 인화 버튼 -->
   <h2 class="ask" id="pickTitle">사진 고르기</h2>
+  <!-- 고르기 제한 시간 2분(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
+  <p class="pick-timer" id="pickTimer" hidden><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
   <div class="pick-body">
     <div class="pick-left">
       <div class="pick-grid" id="pickGrid" role="group" aria-label="찍은 사진"></div>
