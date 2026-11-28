@@ -1466,12 +1466,13 @@ function startLive(video, canvas, look, on, guide){
       var sc=Math.min(1, LIVE_LONG/Math.max(cw,vh));
       var W=Math.round(cw*sc), H=Math.round(vh*sc);
       if (canvas.width!==W || canvas.height!==H){ canvas.width=W; canvas.height=H; }
-      if (cw < vw){
+      var timerOn = drawRelTimer(video, vw, vh, cw);   // 오른쪽 위에 띄울 타이머 숫자가 있는지
+      if (cw < vw || timerOn){
         src = liveCrop; if (src.width!==W || src.height!==H){ src.width=W; src.height=H; }
         src.getContext("2d").drawImage(video, (vw-cw)/2, 0, cw, vh, 0, 0, W, H);
+        if (timerOn) eraseRelTimer(src);   // 카메라의 원래 숫자는 덮어서 겹치지 않게(사용자 요청)
       }
       drawLook(canvas, src, look(), previewMirror(), CFG.slim);
-      drawRelTimer(video, vw, vh, cw);
       if (beautyWarp()){ if (!(frameN++ % 2) || !liveFaces) liveFaces = smoothFaces(liveFaces, beautyFaces(canvas)); beautyInto(canvas, liveFaces); }   // 얼굴 찾기는 두 프레임에 한 번, 위치는 천천히 따라감
       if (guide() && CFG.slim.amount>0) drawSlimGuide(canvas);
     }
@@ -1483,7 +1484,8 @@ function startLive(video, canvas, look, on, guide){
 }
 /* 카메라 셀프타이머 숫자(사용자 요청) — 후지 HDMI 화면 왼쪽 위에 노란 시계·숫자(2 → 1 → 0)가 나오는데, 세로 칸은 가운데만 보여서 잘리고
    가로 칸은 미리보기가 거울이라 뒤집혀 보입니다. 그 자리(가운데 3:2 기준 가로 5~28%, 세로 15~42%, 휴대폰 영상으로 잰 대략 값)에서
-   노란 픽셀만 골라 카메라 칸 오른쪽 위에 2배로, 뒤집지 않고 띄웁니다. 미리보기에만 보이고 찍히는 사진(grabFull)에는 들어가지 않습니다. */
+   노란 픽셀만 골라 카메라 칸 오른쪽 위에 2배로, 뒤집지 않고 띄웁니다. 미리보기에만 보이고 찍히는 사진(grabFull)에는 들어가지 않습니다.
+   카메라의 원래 숫자는 eraseRelTimer 가 주변 색으로 덮습니다. */
 var REL_TIMER = { x:0.05, y:0.15, w:0.23, h:0.27 }, relWork = document.createElement("canvas");
 function drawRelTimer(video, vw, vh, cw){
   var c=$("relTimer"), R=REL_TIMER, st=$("stage"), k=c.getContext("2d");
@@ -1498,7 +1500,7 @@ function drawRelTimer(video, vw, vh, cw){
     p[i+3] = on ? 255 : 0;
     if (on){ var px=j%W, py=(j/W)|0; if (px<x0) x0=px; if (px>x1) x1=px; if (py<y0) y0=py; if (py>y1) y1=py; }
   }
-  if (x1 < 0 || (x1-x0+1)*(y1-y0+1) < 20){ if (c.width) c.width=0; return; }   // 타이머가 없으면(노란 점이 거의 없으면) 숨김
+  if (x1 < 0 || (x1-x0+1)*(y1-y0+1) < 20){ if (c.width) c.width=0; return false; }   // 타이머가 없으면(노란 점이 거의 없으면) 숨김
   x.putImageData(d, 0, 0);
   var bw=x1-x0+1, bh=y1-y0+1;
   if (c.width!==bw || c.height!==bh){ c.width=bw; c.height=bh; } else k.clearRect(0, 0, bw, bh);
@@ -1506,6 +1508,32 @@ function drawRelTimer(video, vw, vh, cw){
   var fw=Math.max(st.clientWidth, st.clientHeight*cw/vh);   // 화면에 보이는 3:2 카메라 그림의 폭(칸을 덮게 키운 크기)
   var hpx=Math.min(st.clientHeight*0.18, 2 * bh*2 * fw/cw);   // 카메라 화면에서 보이던 크기의 2배, 칸 높이의 18% 까지
   c.style.height=hpx+"px"; c.style.width=(hpx*bw/bh)+"px";
+  return true;
+}
+/* 자른 카메라 그림(src, 가운데 3:2)의 타이머 자리에서 노란 글씨를 지웁니다. 가장자리 번짐까지 3칸 넓혀 잡고,
+   같은 줄의 왼쪽·오른쪽 깨끗한 색을 이어 메웁니다. 미리보기용이라 옅은 자국은 남을 수 있습니다. */
+function eraseRelTimer(src){
+  var R=REL_TIMER, x=src.getContext("2d");
+  var X=Math.round(R.x*src.width), Y=Math.round(R.y*src.height), W=Math.round(R.w*src.width), H=Math.round(R.h*src.height);
+  var d=x.getImageData(X, Y, W, H), p=d.data, hit=new Uint8Array(W*H), G=3, i, j, k, l;
+  for (j=0; j<H; j++) for (i=0; i<W; i++){
+    var o=(j*W+i)*4, r=p[o], g=p[o+1], b=p[o+2];
+    if (r>150 && g>120 && r-b>70 && g-b>50 && Math.abs(r-g)<90)
+      for (k=Math.max(0,j-G); k<=Math.min(H-1,j+G); k++) for (l=Math.max(0,i-G); l<=Math.min(W-1,i+G); l++) hit[k*W+l]=1;
+  }
+  for (j=0; j<H; j++){
+    for (i=0; i<W; i++){
+      if (!hit[j*W+i]) continue;
+      var e=i; while (e<W && hit[j*W+e]) e++;   // 이 줄에서 지울 구간 [i, e)
+      var L=(j*W+(i>0 ? i-1 : Math.min(e, W-1)))*4, Rr=(j*W+(e<W ? e : Math.max(i-1, 0)))*4;
+      for (k=i; k<e; k++){
+        var t=(k-i+1)/(e-i+1), q=(j*W+k)*4;
+        for (l=0; l<3; l++) p[q+l]=p[L+l]+(p[Rr+l]-p[L+l])*t;
+      }
+      i=e;
+    }
+  }
+  x.putImageData(d, X, Y);
 }
 /* 손님이 얼굴을 맞출 자리. 미리보기에만 그리고 사진에는 들어가지 않습니다. */
 function drawSlimGuide(cv){
@@ -1845,7 +1873,7 @@ function runSession(){
       S.shots.push(c); ticks(S.shots.length,total);
       if (TETHER.on){ TETHER.queue.push(S.shots.length-1); tetherAssign(); }
       // 방금 찍은 사진을 오른쪽 아래 PREVIEW 에 칸 모양으로(하루필름처럼, 사용자 요청)
-      var pv=$("shootPvC"), s0=L.slots[0] || {w:1,h:1}; pv.width=360; pv.height=Math.round(360*s0.h/s0.w);
+      var pv=$("shootPvC"), s0=L.slots[0] || {w:1,h:1}; pv.width=720; pv.height=Math.round(720*s0.h/s0.w);
       drawCover(pv.getContext("2d"), c, 0, 0, pv.width, pv.height); $("shootPv").hidden=false;
       // "다 찍었어요"는 띄우지 않습니다. 정해진 장 수를 다 찍으면 저절로 고르기로 갑니다(사용자 요청)
       return flash().then(function(){ return wait(700); }).then(function(){ return next(i+1); });
@@ -2124,6 +2152,7 @@ function openPick(L, need, imported){
   S.shots.forEach(function(c, i){ addPickThumb(c, i); });
   show(pickEl);
   fitPick();
+  fitGrid();
   refreshPick();
   if (P.stop) P.stop();
   P.stop = countdown($("pickTimer"), pickTimeUp);   // 고르기도 2분(사용자 요청)
@@ -2261,7 +2290,23 @@ function setPickAr(){
   var ar = s0.w+" / "+s0.h;
   $("pickGrid").style.setProperty("--ar", ar);
   setFilm(P.L);
+  fitGrid();
 }
+/* 가로 화면: 찍은 사진이 스크롤 없이 왼쪽 칸에 다 보이게 크기를 정합니다(사용자 요청). 4장 2×2, 8장 4×2, 10장 5×2 */
+function fitGrid(){
+  var g=$("pickGrid"), n=g.children.length;
+  g.style.gridTemplateColumns=""; g.style.width="";
+  if (pickEl.hidden || !n || innerWidth < innerHeight) return;
+  var left=g.parentElement, guide=left.querySelector(".guide"), gap=16;
+  var cols = n <= 4 ? Math.min(2, n) : Math.ceil(n/2), rows=Math.ceil(n/cols);
+  var s0=(P.L && P.L.slots[0]) || {w:1,h:1}, ar=s0.w/s0.h;
+  var availW=left.clientWidth - 4, availH=left.clientHeight - (guide ? guide.offsetHeight + 14 + gap : 0) - 4;
+  var w=Math.floor(Math.min((availW-gap*(cols-1))/cols, (availH-gap*(rows-1))/rows*ar));
+  if (w < 80) return;   // 창이 아주 작으면 예전 목록(스크롤) 그대로
+  g.style.gridTemplateColumns="repeat("+cols+", "+w+"px)";
+  g.style.width=(cols*w + gap*(cols-1) + 4)+"px";   // 4: 목록 오른쪽 안쪽 여백
+}
+window.addEventListener("resize", fitGrid);
 /* 프레임을 바꾸면 칸 수가 달라집니다. 넘치는 고른 사진은 뒤에서부터 뺍니다. */
 $("pickFrames").addEventListener("click", function(e){
   var b=e.target.closest(".chip"); if(!b) return;

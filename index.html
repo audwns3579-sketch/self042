@@ -230,6 +230,11 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .shoot-pv{text-align:center}
 .shoot-pv i{display:inline-block;font-style:normal;font-size:13px;letter-spacing:.14em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 14px;margin-bottom:10px}
 .shoot-pv canvas{display:block;margin:0 auto;width:min(17vw,30vh);height:auto;border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+/* 가로 화면: 방금 찍은 사진을 남은 시간 아래 빈 곳에 크게(사용자 요청). 폭 24vw, 높이 56vh 안에서 칸 모양 그대로 */
+@media (min-aspect-ratio:1/1){
+  .shoot-pv{top:calc(7vh + 170px);bottom:4vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .shoot-pv canvas{width:auto;height:auto;max-width:100%;max-height:56vh}
+}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
   transition:opacity .09s ease-out;z-index:3}
 #flash.on{opacity:1;transition:none}
@@ -275,9 +280,9 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   #pick{padding-block:16px;gap:12px}
   #pick .ask{font-size:clamp(22px,2.6vw,32px);line-height:1.25}
   .pick-body{flex:1 1 0;min-height:340px;flex-wrap:nowrap;gap:32px;align-items:stretch}
-  .pick-left{flex:1 1 auto;min-width:0;align-self:stretch;min-height:0;justify-content:flex-start}
+  .pick-left{flex:1 1 auto;min-width:0;align-self:stretch;min-height:0;justify-content:center}   /* 목록·안내를 위아래 가운데에(사용자 요청) */
   /* 목록 폭은 예전(100vw - 464px)의 80%, 미리보기 칸은 640px 까지 키움(사용자 요청, 1920 화면에서 목록 1165·필름 614×860) */
-  .pick-left .pick-grid{width:calc((100vw - 464px) * .8);max-width:100%;flex:1 1 auto;min-height:0;max-height:none;align-content:start}
+  .pick-left .pick-grid{width:calc((100vw - 464px) * .8);max-width:100%;flex:0 1 auto;min-height:0;max-height:none;align-content:start}   /* 열 수·크기는 app.js fitGrid */
   .pick-side{flex:0 0 clamp(300px,34vw,640px);gap:14px;justify-content:center}
   #pick #pickPrev{max-height:calc(100vh - 290px);max-width:100%}   /* 위 남은 시간 한 줄 자리(70px)만큼 줄임 */
   .pick-actions .btn{min-height:64px;font-size:20px}
