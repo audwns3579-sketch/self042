@@ -1453,7 +1453,7 @@ function drawLook(out, src, f, mirror, slim){
 /* 실시간 미리보기 — 비디오를 작게 줄여 매 프레임 drawLook 으로 그립니다.
    on() 이 거짓이 되면 멈춥니다. guide() 가 참이면 얼굴 줄이기 범위를 점선으로 보여줍니다. */
 var LIVE_LONG = 640;
-var liveFaces = null, frameN = 0;
+var liveFaces = null, frameN = 0, liveCrop = document.createElement("canvas");   // liveCrop: 미리보기 가운데 3:2 를 잘라 담는 칸(프레임마다 새로 만들지 않게)
 function startLive(video, canvas, look, on, guide){
   if (canvas.dataset.live) return;
   canvas.dataset.live = "1";
@@ -1461,10 +1461,16 @@ function startLive(video, canvas, look, on, guide){
     if (!on()){ delete canvas.dataset.live; return; }
     var vw=video.videoWidth, vh=video.videoHeight;
     if (vw && vh){
-      var sc=Math.min(1, LIVE_LONG/Math.max(vw,vh));
-      var W=Math.round(vw*sc), H=Math.round(vh*sc);
+      // 후지 HDMI 화면은 3:2 사진 양옆에 검은 띠가 있어, 찍히는 사진(grabFull)처럼 가운데 3:2 만 보여 줍니다(인스탁스 가로 칸에서 띠가 보이던 것, 사용자 요청)
+      var cw = vw/vh > 1.51 ? Math.round(vh*1.5) : vw, src = video;
+      var sc=Math.min(1, LIVE_LONG/Math.max(cw,vh));
+      var W=Math.round(cw*sc), H=Math.round(vh*sc);
       if (canvas.width!==W || canvas.height!==H){ canvas.width=W; canvas.height=H; }
-      drawLook(canvas, video, look(), previewMirror(), CFG.slim);
+      if (cw < vw){
+        src = liveCrop; if (src.width!==W || src.height!==H){ src.width=W; src.height=H; }
+        src.getContext("2d").drawImage(video, (vw-cw)/2, 0, cw, vh, 0, 0, W, H);
+      }
+      drawLook(canvas, src, look(), previewMirror(), CFG.slim);
       if (beautyWarp()){ if (!(frameN++ % 2) || !liveFaces) liveFaces = smoothFaces(liveFaces, beautyFaces(canvas)); beautyInto(canvas, liveFaces); }   // 얼굴 찾기는 두 프레임에 한 번, 위치는 천천히 따라감
       if (guide() && CFG.slim.amount>0) drawSlimGuide(canvas);
     }

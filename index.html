@@ -243,10 +243,11 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 
 /* ── 2-1. 사진 고르기 ─────────────────── */
 #pick{justify-content:flex-start;align-items:center;gap:14px;padding-block:18px;overflow-y:auto}
-#pickTitle{margin-top:auto}
-.pick-timer{position:absolute;top:18px;right:2vw;margin:0;font-size:22px;color:var(--fg)}
-.pick-timer small{font-size:16px;color:var(--muted)}
-.pick-timer b{font-size:30px;color:var(--lamp);font-variant-numeric:tabular-nums}
+/* 제목과 남은 시간을 한 줄에(사용자 요청: 구석에 작아 안 보임) */
+.pick-head{display:flex;align-items:baseline;justify-content:center;gap:32px;margin-top:auto}
+.pick-timer{margin:0;color:var(--fg);white-space:nowrap}
+.pick-timer small{font-size:20px;color:var(--muted)}
+.pick-timer b{font-size:48px;color:var(--lamp);font-variant-numeric:tabular-nums}
 .pick-timer .bar{display:none}
 .pick-body{margin-bottom:auto}
 .pick-body{display:flex;gap:36px;align-items:center;justify-content:center;width:100%;flex-wrap:wrap}
@@ -370,7 +371,7 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   aspect-ratio:99/62;object-fit:cover;border-radius:0;box-shadow:none;background:#fff}
 #pick.instax .film.v #pickPrev,#result.instax .film.v #resultImg{aspect-ratio:62/99}
 #pick.instax #pickFrames .chip{min-width:72px;justify-content:center;font-size:16px}
-#result.instax #printBtn{order:-1}
+#result #mirrorBtn{order:-1}   /* 좌우 반전 왼쪽, 인화 오른쪽(사용자 요청, 인스탁스도 같음) */
 #printerLine{position:fixed;right:18px;bottom:calc(14px + env(safe-area-inset-bottom,0px));margin:0;z-index:40;
   font-size:11px;letter-spacing:.16em;color:var(--muted)}
 #printerLine::before{content:'●';margin-right:7px;color:var(--muted)}
@@ -589,9 +590,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 <!-- 2-1. 사진 고르기 (많이 찍고 고르기) -->
 <section class="screen" id="pick" hidden>
   <!-- MEI 부스처럼: 왼쪽에 찍은 사진, 오른쪽에 컷 수 · 인화 미리보기 · 인화 버튼 -->
-  <h2 class="ask" id="pickTitle">사진 고르기</h2>
-  <!-- 고르기 제한 시간 2분(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
-  <p class="pick-timer" id="pickTimer" hidden><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
+  <div class="pick-head">
+    <h2 class="ask" id="pickTitle">사진 고르기</h2>
+    <!-- 고르기 제한 시간 2분(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
+    <p class="pick-timer" id="pickTimer" hidden><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
+  </div>
   <div class="pick-body">
     <div class="pick-left">
       <div class="pick-grid" id="pickGrid" role="group" aria-label="찍은 사진"></div>
@@ -634,10 +637,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       </div>
     </div>
     <div class="stk-side">
-      <div class="timer" id="stkTimer"><small>남은 시간</small><b>2:00</b><span class="bar"><i></i></span></div>
       <div id="stkPane">
         <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
         <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
+        <!-- 남은 시간은 안내 문구 바로 위(사용자 요청, 예전 오른쪽 맨 위) -->
+        <div class="timer" id="stkTimer"><small>남은 시간</small><b>2:00</b><span class="bar"><i></i></span></div>
         <p class="guide"><span>안내</span>스티커를 누르면 <b>사진 가운데</b>에 붙어요. 끌어서 옮기고, 모서리 손잡이로 <b>✕ 빼기 · ↻ 돌리기 · ⤡ 크기</b>를 바꿔요.</p>
       </div>
       <button class="btn primary" id="stkDone">다음</button>
