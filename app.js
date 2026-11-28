@@ -1785,20 +1785,22 @@ function showQr(blob, sub, origs, plain){
   var box=$("qrBox"), img=$("qrImg"), note=$("qrNote");
   if (!DRIVE_URL){ box.hidden=true; return; }
   S.qrOk=false; syncPrintBtn();   // 새 QR 이 뜰 때까지 인화 버튼을 막습니다
+  $("qrFail").hidden=true; S.qrArgs=[blob, sub, origs, plain];   // "QR 다시 만들기"에서 같은 것으로 다시
   box.hidden=false; img.innerHTML=""; note.textContent="QR 을 만드는 중입니다…";
   var up = Promise.all([loadQrLib(), blobBase64(blob)]).then(function(r){
     return postDrive({ img:r[1], folder:sub });
   });
   // 원본은 프레임이 올라간 뒤 한 장씩 올립니다(같은 이름 폴더가 둘 생기지 않게). 손님 화면에는 안 보이게 조용히 합니다
   // 스티커 없는 프레임은 맨 먼저. orig:"00" 은 Code.gs 를 새로 배포하기 전에도 "원본_00.jpg" 로 남게 하려는 것입니다
-  if (plain || (origs && origs.length)) up.catch(function(){}).then(function(){
+  if (plain || (origs && origs.length)) up.then(function(j){
+    if (!j.ok) return;   // 프레임이 못 올라갔으면 원본도 "QR 다시 만들기" 때 올립니다
     var first = !plain ? Promise.resolve() : blobBase64(plain)
       .then(function(b64){ return postDrive({ img:b64, folder:sub, orig:"00", plain:1 }); })
       .catch(function(e){ console.warn("스티커 없는 프레임을 올리지 못했습니다", e); });
     return (origs||[]).reduce(function(pr, b64, i){
       return pr.then(function(){ return postDrive({ img:b64, folder:sub, orig:i+1 }); }).catch(function(e){ console.warn("원본 "+(i+1)+" 을 올리지 못했습니다", e); });
     }, first);
-  });
+  }).catch(function(){});
   up.then(function(j){
     if (S.blob !== blob) return;   // 그사이 다시 찍었으면 옛 QR 은 버립니다
     if (!j.ok) throw new Error(j.error || "올리지 못했습니다");
@@ -1811,8 +1813,11 @@ function showQr(blob, sub, origs, plain){
   }).catch(function(e){
     if (S.blob !== blob) return;
     note.textContent="QR 을 만들지 못했습니다. 인터넷 연결을 확인해 주세요. ("+(e && e.message || e)+")";
+    $("qrFail").hidden=false;
   });
 }
+$("qrRetry").addEventListener("click", function(){ if (S.qrArgs && S.qrArgs[0] === S.blob) showQr.apply(null, S.qrArgs); });
+$("qrHome").addEventListener("click", function(){ ask("사진을 버리고 처음으로 돌아갈까요?", goHome); });
 function freeCanvases(list){
   (list||[]).forEach(function(c){
     if (c && c.__lk){ for (var k in c.__lk.map) free(c.__lk.map[k]); c.__lk=null; }
@@ -2702,6 +2707,7 @@ function countdown(box, onEnd){
     var s = Math.max(0, Math.ceil((end - Date.now())/1000));
     box.querySelector("b").textContent = Math.floor(s/60)+":"+("0"+s%60).slice(-2);
     box.querySelector(".bar i").style.width = (s/TIME_LIMIT*100)+"%";
+    box.classList.toggle("last", s <= 10);   // 마지막 10초는 빨간 숫자
     if (s <= 0){ t = null; onEnd(); return; }
     t = setTimeout(tick, 250);
   })();

@@ -53,7 +53,7 @@ body.booting #setup > *{visibility:hidden}   /* 설정을 읽는 동안 첫 화�
 body[data-theme] .screen:not(#admin) .eyebrow{font-family:var(--display)}
 /* 밝음: 베이지가 이상하다고 해서 모노 화이트(순백 + 검정)로 바꿈(사용자 요청, 견본 B). --slot: 첫 화면 카드 속 빈 사진 칸 */
 body[data-theme=light] :is(.screen:not(#admin),#msg,#confirm){
-  --ink:#FFFFFF; --panel:#FFFFFF; --panel2:#FFFFFF; --line:#E4E4E4; --fg:#111111; --muted:#8C8C8C;
+  --ink:#FFFFFF; --panel:#FFFFFF; --panel2:#FFFFFF; --line:#E4E4E4; --fg:#111111; --muted:#6B6B6B;
   --safelight:#111111; --lamp:#111111; --onaccent:#FFFFFF; --sel:#FFFFFF; --glow:#FFFFFF; --slot:#DADADA;   /* 카드·버튼·위쪽 빛까지 완전 흰색(사용자 요청) */
   --display:'Fredoka',sans-serif; --body:'Jua',-apple-system,sans-serif; --radius:22px; --bradius:999px;
   color-scheme:light; font-weight:400}
@@ -204,7 +204,7 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .fc-sw[aria-pressed=true] .dot{border-color:var(--lamp)}
 /* 남은 시간(촬영·꾸미기 2분) */
 .timer{text-align:center;color:var(--fg)}
-.timer small{display:block;font-size:16px;color:var(--muted)}
+.timer small{display:block;font-size:20px;color:var(--muted)}
 .timer b{display:block;font-size:clamp(44px,5vw,72px);font-weight:700;color:var(--lamp);font-variant-numeric:tabular-nums}
 .timer .bar{display:block;height:6px;width:70%;margin:10px auto 0;background:var(--line);border-radius:3px;overflow:hidden}
 .timer .bar i{display:block;height:100%;width:100%;background:var(--lamp)}
@@ -249,6 +249,15 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .pick-timer small{font-size:20px;color:var(--muted)}
 .pick-timer b{font-size:48px;color:var(--lamp);font-variant-numeric:tabular-nums}
 .pick-timer .bar{display:none}
+/* 마지막 10초는 시계 숫자를 빨간색으로(사용자 요청, app.js countdown) */
+.timer.last b,.pick-timer.last b{color:#D32F2F}
+/* 서서 보는 24인치 터치 화면이라 작은 설명 글씨를 키움(2026-11-28 점검) */
+#shotNote{font-size:20px}
+#qrNote{font-size:22px}
+#result > .eyebrow{font-size:20px}
+/* QR 을 못 만들었을 때만 보이는 버튼 */
+#qrFail{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+#qrFail .btn{min-height:72px;font-size:24px}
 .pick-body{margin-bottom:auto}
 .pick-body{display:flex;gap:36px;align-items:center;justify-content:center;width:100%;flex-wrap:wrap}
 .pick-left,.pick-side{display:flex;flex-direction:column;align-items:center;gap:16px}
@@ -307,10 +316,10 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 /* 안내 상자 — 각 기능 바로 밑, 왼쪽 위에 검은 "안내" 표시(사용자 요청, 견본 B) */
 .guide{position:relative;margin:14px 0 0;background:#F4F5F7;border:1.5px solid #C9CDD4;border-radius:14px;padding:22px 16px 14px;
   font-size:19px;font-weight:500;line-height:1.55;color:#111;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,.06)}
-.guide>span{position:absolute;top:-13px;left:14px;background:#111;color:#fff;font-size:14px;font-weight:700;padding:3px 12px;border-radius:999px;letter-spacing:.05em}
+.guide>span{position:absolute;top:-16px;left:14px;background:#111;color:#fff;font-size:18px;font-weight:700;padding:3px 12px;border-radius:999px;letter-spacing:.05em}
 .guide b{font-weight:700}
-.stk-tabs{justify-content:flex-start;gap:6px}
-.stk-tabs .chip{padding:9px 14px;font-size:15px}
+.stk-tabs{justify-content:flex-start;gap:8px}
+.stk-tabs .chip{width:80px;min-height:56px;padding:0;font-size:20px}
 .stk-pal{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:min(42vh,420px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px;align-content:start}
 .stk-btn{aspect-ratio:1;border-radius:12px;background:var(--panel);border:1px solid var(--line);padding:10px;display:flex;align-items:center;justify-content:center}
 .stk-btn img{max-width:100%;max-height:100%;pointer-events:none}
@@ -483,8 +492,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 #confirm{position:fixed;inset:0;z-index:70;background:rgba(6,4,4,.82);
   display:flex;align-items:center;justify-content:center;padding:20px}
 .cbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px;
-  max-width:34ch;display:flex;flex-direction:column;gap:15px;color:var(--fg)}
-.cbox p{margin:0;font-size:15px;line-height:1.6}
+  max-width:480px;display:flex;flex-direction:column;gap:24px;color:var(--fg)}
+.cbox p{margin:0;font-size:24px;line-height:1.6;text-align:center}
+/* 확인 창 버튼: 터치하기 좋게 200×72, 사이 24 */
+.cbox .row{gap:24px;flex-wrap:nowrap}
+.cbox .btn{width:200px;min-height:72px;font-size:24px}
 
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
 
@@ -660,6 +672,11 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <div id="qrBox" hidden style="text-align:center;margin:10px 0">
     <div id="qrImg" style="display:inline-block;background:#fff;padding:6px;border-radius:6px;line-height:0;min-height:20px"></div>
     <p class="hint" id="qrNote" style="margin-top:6px"></p>
+    <!-- QR 을 못 만든 경우에만. 인화·좌우 반전은 계속 막고, 손님이 갇히지 않게 합니다 -->
+    <div id="qrFail" hidden>
+      <button class="btn primary" id="qrRetry">QR 다시 만들기</button>
+      <button class="btn" id="qrHome">처음으로</button>
+    </div>
   </div>
   <div class="row result-actions" style="justify-content:center">
     <!-- 사진 앱에 저장·다시 찍기는 결과 화면에서 뺐습니다(사용자 요청, 2026-11-26). 인화·좌우 반전·QR 만 둡니다 -->
