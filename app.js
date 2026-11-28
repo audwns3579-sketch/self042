@@ -1817,7 +1817,6 @@ function showQr(blob, sub, origs, plain){
   });
 }
 $("qrRetry").addEventListener("click", function(){ if (S.qrArgs && S.qrArgs[0] === S.blob) showQr.apply(null, S.qrArgs); });
-$("qrHome").addEventListener("click", function(){ ask("사진을 버리고 처음으로 돌아갈까요?", goHome); });
 function freeCanvases(list){
   (list||[]).forEach(function(c){
     if (c && c.__lk){ for (var k in c.__lk.map) free(c.__lk.map[k]); c.__lk=null; }
