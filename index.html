@@ -352,6 +352,10 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 .adj-row input{flex:1;accent-color:#111;height:52px}
 .adj-row output{width:46px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 #result{justify-content:center;align-items:center;gap:18px;padding-block:22px;overflow-y:auto}
+.qty{display:flex;align-items:center;gap:10px}
+.qty b{min-width:76px;text-align:center;font-size:32px;font-variant-numeric:tabular-nums}
+.result-actions .qty .btn{min-width:88px;width:88px;min-height:88px;padding:0;font-size:40px}
+#priceLine{margin:0;font-size:28px;font-weight:700;text-align:center}
 #resultImg{max-height:56vh;width:auto;border-radius:3px;
   box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 0 1px var(--line)}
 /* 설명글: 좁은 폭(예전 36ch)에서 문장 중간이 끊기지 않게 폭 제한을 없애고, 흐린 회색 대신 본문색(밝은 화면은 검정)으로(사용자 요청) */
@@ -364,11 +368,12 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
     column-gap:56px;row-gap:16px;align-content:center;justify-content:center;justify-items:center}
   #result > .eyebrow{grid-column:1;grid-row:1}
   #resultFilm,#resultImg{grid-column:1;grid-row:2 / span 3}   /* .film 은 display:contents 라 img 가 격자 칸이 됩니다 */
-  #resultImg{max-height:calc(100vh - 280px)}   /* 아래 인화·좌우 반전 버튼 자리 */
+  #resultImg{max-height:calc(100vh - 330px)}   /* 아래 인화·좌우 반전 버튼과 가격 줄 자리 */
   #qrBox{grid-column:2;grid-row:2;align-self:end}
   /* 인화·좌우 반전은 사진 바로 아래 한 줄로 크게(사용자 요청). QR 은 오른쪽 그대로 */
   #result .result-actions{grid-column:1;grid-row:5;gap:20px}
-  #result .result-actions .btn{min-width:320px;min-height:88px;font-size:28px}
+  #result .result-actions > .btn{min-width:240px;min-height:88px;font-size:28px}
+  #priceLine{grid-column:1;grid-row:6}
   #result > .hint{grid-column:1;grid-row:6;align-self:start}   /* 설명은 왼쪽 사진 아래(사용자 요청) */
 }
 
@@ -511,7 +516,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 @media print{
   html,body{height:auto;margin:0;background:#fff}
   .screen{position:static;padding:0}
-  #setup,#shoot,#pick,#sticker,#admin,#msg,#confirm,.result-actions,.hint,#result .eyebrow{display:none!important}
+  #setup,#shoot,#pick,#sticker,#admin,#msg,#confirm,.result-actions,#priceLine,.hint,#result .eyebrow{display:none!important}
   #result{display:flex!important;align-items:center;justify-content:center;
     width:100%;height:100vh;margin:0;padding:0;overflow:hidden;page-break-inside:avoid}
   #resultImg{width:auto;height:auto;max-width:100%;max-height:100vh;object-fit:contain;
@@ -690,10 +695,17 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <div class="row result-actions" style="justify-content:center">
     <!-- 사진 앱에 저장·다시 찍기는 결과 화면에서 뺐습니다(사용자 요청, 2026-11-26). 인화·좌우 반전·QR 만 둡니다 -->
     <button class="btn primary" id="saveBtn" hidden>사진 앱에 저장</button>
+    <!-- 장수 고르기(1~5장). 맥으로 바로 뽑을 때만 보입니다(사용자 요청) -->
+    <div class="qty" id="qtyBox" hidden>
+      <button class="btn" type="button" id="qtyMinus" aria-label="한 장 빼기">−</button>
+      <b id="qtyNum" aria-live="polite">1장</b>
+      <button class="btn" type="button" id="qtyPlus" aria-label="한 장 더하기">+</button>
+    </div>
     <button class="btn" id="printBtn">인쇄</button>
     <button class="btn" id="mirrorBtn" hidden>좌우 반전</button>
     <button class="btn ghost" id="againBtn" hidden>다시 찍기</button>
   </div>
+  <p id="priceLine" aria-live="polite" hidden></p>
   <p class="hint" hidden>저장을 누르면 공유 시트가 열립니다. <b>이미지 저장</b>을 고르면 사진 앱에 들어갑니다.<span id="resultHint"><br>
   인쇄를 누르면 공유 창이 열립니다. <b>프린트</b>를 고르고 용지를 5×7 로 두세요.</span></p>
 </section>
