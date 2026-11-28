@@ -1471,6 +1471,7 @@ function startLive(video, canvas, look, on, guide){
         src.getContext("2d").drawImage(video, (vw-cw)/2, 0, cw, vh, 0, 0, W, H);
       }
       drawLook(canvas, src, look(), previewMirror(), CFG.slim);
+      drawRelTimer(video, vw, vh, cw);
       if (beautyWarp()){ if (!(frameN++ % 2) || !liveFaces) liveFaces = smoothFaces(liveFaces, beautyFaces(canvas)); beautyInto(canvas, liveFaces); }   // 얼굴 찾기는 두 프레임에 한 번, 위치는 천천히 따라감
       if (guide() && CFG.slim.amount>0) drawSlimGuide(canvas);
     }
@@ -1479,6 +1480,32 @@ function startLive(video, canvas, look, on, guide){
     if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(frame);
     else requestAnimationFrame(frame);
   })();
+}
+/* 카메라 셀프타이머 숫자(사용자 요청) — 후지 HDMI 화면 왼쪽 위에 노란 시계·숫자(2 → 1 → 0)가 나오는데, 세로 칸은 가운데만 보여서 잘리고
+   가로 칸은 미리보기가 거울이라 뒤집혀 보입니다. 그 자리(가운데 3:2 기준 가로 5~28%, 세로 15~42%, 휴대폰 영상으로 잰 대략 값)에서
+   노란 픽셀만 골라 카메라 칸 오른쪽 위에 2배로, 뒤집지 않고 띄웁니다. 미리보기에만 보이고 찍히는 사진(grabFull)에는 들어가지 않습니다. */
+var REL_TIMER = { x:0.05, y:0.15, w:0.23, h:0.27 }, relWork = document.createElement("canvas");
+function drawRelTimer(video, vw, vh, cw){
+  var c=$("relTimer"), R=REL_TIMER, st=$("stage"), k=c.getContext("2d");
+  var sx=(vw-cw)/2 + R.x*cw, sy=R.y*vh, sw=R.w*cw, sh=R.h*vh;
+  var W=Math.max(1,Math.round(sw/2)), H=Math.max(1,Math.round(sh/2));   // 절반 크기로 봅니다(가볍게)
+  if (relWork.width!==W || relWork.height!==H){ relWork.width=W; relWork.height=H; }
+  var x=relWork.getContext("2d", { willReadFrequently:true });
+  x.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+  var d=x.getImageData(0, 0, W, H), p=d.data, x0=W, y0=H, x1=-1, y1=-1;
+  for (var i=0, j=0; i<p.length; i+=4, j++){   // 노란색(빨강·초록 높고 파랑 낮음)만 남깁니다. 빨간 커튼·피부·흰 옷·초록 초점 상자는 빠집니다
+    var r=p[i], g=p[i+1], b=p[i+2], on = r>170 && g>140 && b<110 && r-b>90 && g-b>60 && Math.abs(r-g)<80;
+    p[i+3] = on ? 255 : 0;
+    if (on){ var px=j%W, py=(j/W)|0; if (px<x0) x0=px; if (px>x1) x1=px; if (py<y0) y0=py; if (py>y1) y1=py; }
+  }
+  if (x1 < 0 || (x1-x0+1)*(y1-y0+1) < 20){ if (c.width) c.width=0; return; }   // 타이머가 없으면(노란 점이 거의 없으면) 숨김
+  x.putImageData(d, 0, 0);
+  var bw=x1-x0+1, bh=y1-y0+1;
+  if (c.width!==bw || c.height!==bh){ c.width=bw; c.height=bh; } else k.clearRect(0, 0, bw, bh);
+  k.drawImage(relWork, x0, y0, bw, bh, 0, 0, bw, bh);   // 노란 시계·숫자만 딱 잘라서
+  var fw=Math.max(st.clientWidth, st.clientHeight*cw/vh);   // 화면에 보이는 3:2 카메라 그림의 폭(칸을 덮게 키운 크기)
+  var hpx=Math.min(st.clientHeight*0.18, 2 * bh*2 * fw/cw);   // 카메라 화면에서 보이던 크기의 2배, 칸 높이의 18% 까지
+  c.style.height=hpx+"px"; c.style.width=(hpx*bw/bh)+"px";
 }
 /* 손님이 얼굴을 맞출 자리. 미리보기에만 그리고 사진에는 들어가지 않습니다. */
 function drawSlimGuide(cv){
@@ -1496,6 +1523,7 @@ function drawSlimGuide(cv){
 function stopStream(){
   if (S.stream){ S.stream.getTracks().forEach(function(t){ t.stop(); }); S.stream=null; }
   $("live").width = 0;   // 남겨두면 다음 손님이 카메라를 켤 때 앞 손님 얼굴이 잠깐 보입니다
+  $("relTimer").width = 0;   // 타이머 숫자도 같이 지웁니다
 }
 /* 쓸 카메라를 고릅니다. 관리자가 정해둔 카메라가 없거나 빠졌으면
    기본 카메라로 돌아갑니다. */
