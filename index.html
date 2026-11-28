@@ -173,7 +173,8 @@ label.lab{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spaci
 #video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
 /* 실시간 미리보기 — 비디오 위에 보정한 그림을 그립니다. 비디오는 밑에서 계속 재생됩니다. */
 .live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}.lay{position:absolute;inset:0;pointer-events:none}
-.rel-timer{position:absolute;top:3%;right:3%;z-index:2;height:auto;pointer-events:none}   /* 카메라 타이머 숫자(drawRelTimer) */
+.rel-num{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;pointer-events:none;color:#fff;line-height:1;
+  font-family:'IBM Plex Sans KR',sans-serif;font-weight:700;-webkit-text-stroke:4px rgba(0,0,0,.35)}   /* 크기는 app.js 가 카메라 칸에 맞춥니다 */
 .stage::after{content:'';position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 0 0 90px rgba(0,0,0,.45)}
 /* 선택 버튼 전체(밝은 화면): 아이폰 글라스처럼 유리 알약(사용자 요청). 흰 버튼이 흰 바탕에 묻혀서 연회색 테두리 + 두 겹 그림자(견본 1),
@@ -576,8 +577,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <video id="video" playsinline muted autoplay></video>
     <canvas class="live" id="live"></canvas>
     <div class="lay" id="vignLayer"></div>
-    <!-- 카메라 셀프타이머 노란 숫자를 오른쪽 위에 크게(app.js drawRelTimer, 사용자 요청) -->
-    <canvas class="rel-timer" id="relTimer" aria-hidden="true"></canvas>
+    <!-- 카메라 셀프타이머가 돌면 가운데에 숫자만 크게(app.js relTimerTick, 사용자가 고른 견본 A) -->
+    <div class="rel-num" id="relNum" aria-hidden="true" hidden></div>
     <div class="ticks" id="ticks" hidden></div><!-- 위쪽 막대 표시는 숨김(사용자 요청). 컷 수는 왼쪽 CUT 3 / 10 -->
     <div class="count" id="count" hidden>
       <div class="n" id="countNum">3</div>
@@ -595,6 +596,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <div id="beautySliders"></div>
     <p class="hint" id="beautyNote"></p>
     <button class="btn" id="beautyReset">처음 값으로</button>
+    <!-- 색 고르기 화면으로(사용자 요청) -->
+    <button class="btn ghost" id="beautyBack">뒤로</button>
   </div>
   <div class="shoot-pv" id="shootPv" hidden><i>PREVIEW</i><canvas id="shootPvC" width="360" height="360"></canvas></div>
   <div class="row" style="justify-content:center">
@@ -602,7 +605,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
     <!-- 뷰티 화면에서는 그만두기 대신 여기 촬영 시작(사용자 요청) -->
     <button class="btn primary" id="beautyGo" hidden>촬영 시작</button>
     <button class="btn primary" id="doneBtn" hidden>다 찍었어요</button>
-    <button class="btn ghost" id="cancelBtn">그만두기</button>
+    <!-- 손님은 촬영을 시작하면 못 돌아갑니다. 관리자 "뒤로가기 버튼"을 켜야 보입니다(사용자 요청) -->
+    <button class="btn ghost" id="cancelBtn" hidden>뒤로가기</button>
     <button class="btn ghost" id="flipBtn">카메라 전환</button>
   </div>
 </section>
@@ -631,7 +635,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       <div class="film" id="pickFilm"><img id="pickPrev" draggable="false" alt="고른 사진으로 만든 인화 미리보기"></div>
       <div class="pick-actions">
         <button class="btn primary" id="pickDone" disabled>이 사진으로 완성</button>
-        <button class="btn ghost" id="pickQuit">처음으로</button>
+        <button class="btn ghost" id="pickQuit" hidden>뒤로가기</button>
       </div>
     </div>
   </div>
@@ -710,6 +714,12 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       <p class="note" id="editNote"></p>
     </div>
     <div class="adm-side">
+
+      <div class="card">
+        <h3>뒤로가기 버튼</h3>
+        <label class="note" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="backOn"> 촬영·사진 고르기 화면에 "뒤로가기" 보이기</label>
+        <p class="note">꺼 두면(처음 값) 손님은 촬영을 시작한 뒤 첫 화면으로 돌아갈 수 없습니다.</p>
+      </div>
 
       <!-- 손님 화면 디자인 3가지(사용자 요청). 관리자 화면은 그대로입니다. app.js setTheme -->
       <div class="card">

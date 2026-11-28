@@ -1466,7 +1466,7 @@ function startLive(video, canvas, look, on, guide){
       var sc=Math.min(1, LIVE_LONG/Math.max(cw,vh));
       var W=Math.round(cw*sc), H=Math.round(vh*sc);
       if (canvas.width!==W || canvas.height!==H){ canvas.width=W; canvas.height=H; }
-      var timerOn = drawRelTimer(video, vw, vh, cw);   // 오른쪽 위에 띄울 타이머 숫자가 있는지
+      var timerOn = relTimerTick(video, vw, vh, cw);   // 카메라 타이머가 도는 중인지(가운데 숫자)
       if (cw < vw || timerOn){
         src = liveCrop; if (src.width!==W || src.height!==H){ src.width=W; src.height=H; }
         src.getContext("2d").drawImage(video, (vw-cw)/2, 0, cw, vh, 0, 0, W, H);
@@ -1482,33 +1482,41 @@ function startLive(video, canvas, look, on, guide){
     else requestAnimationFrame(frame);
   })();
 }
-/* 카메라 셀프타이머 숫자(사용자 요청) — 후지 HDMI 화면 왼쪽 위에 노란 시계·숫자(2 → 1 → 0)가 나오는데, 세로 칸은 가운데만 보여서 잘리고
-   가로 칸은 미리보기가 거울이라 뒤집혀 보입니다. 그 자리(가운데 3:2 기준 가로 5~28%, 세로 15~42%, 휴대폰 영상으로 잰 대략 값)에서
-   노란 픽셀만 골라 카메라 칸 오른쪽 위에 2배로, 뒤집지 않고 띄웁니다. 미리보기에만 보이고 찍히는 사진(grabFull)에는 들어가지 않습니다.
-   카메라의 원래 숫자는 eraseRelTimer 가 주변 색으로 덮습니다. */
+/* 카메라 셀프타이머 숫자(사용자 요청) — 후지 HDMI 화면 왼쪽 위에 노란 시계·숫자(2 → 1 → 0)가 나오는데, 세로 칸에서는 잘리고 가로 칸은 거울이라 뒤집혀 보입니다.
+   그 자리(가운데 3:2 기준 가로 5~28%, 세로 15~42%)에 노란색이 나타나면 카메라 칸 가운데에 숫자만 크게 띄우고(견본 A), 원래 노란 표시는 eraseRelTimer 가 덮습니다.
+   미리보기에만 보이고 찍히는 사진(grabFull)에는 들어가지 않습니다. */
 var REL_TIMER = { x:0.05, y:0.15, w:0.23, h:0.27 }, relWork = document.createElement("canvas");
-function drawRelTimer(video, vw, vh, cw){
-  var c=$("relTimer"), R=REL_TIMER, st=$("stage"), k=c.getContext("2d");
-  var sx=(vw-cw)/2 + R.x*cw, sy=R.y*vh, sw=R.w*cw, sh=R.h*vh;
+/* 앱은 카메라 숫자를 읽지 못해, 노란 표시가 나타난 때부터 2 → 1 → 0 을 REL_STEP 마다 셉니다(카메라 타이머 2초 기준, 영상에서 한 숫자가 약 1.1초).
+   표시가 잠깐(REL_GAP) 안 잡혀도 이어서 셉니다. 3번이 지나도 노란 것이 남아 있으면(노란 옷·물건) 숫자를 숨기고 덮기도 멈춥니다. */
+var REL_FROM = 2, REL_STEP = 1100, REL_GAP = 300, relT = { start:0, seen:0 };
+function relTimerYellow(video, vw, vh, cw){
+  var R=REL_TIMER, sx=(vw-cw)/2 + R.x*cw, sy=R.y*vh, sw=R.w*cw, sh=R.h*vh;
   var W=Math.max(1,Math.round(sw/2)), H=Math.max(1,Math.round(sh/2));   // 절반 크기로 봅니다(가볍게)
   if (relWork.width!==W || relWork.height!==H){ relWork.width=W; relWork.height=H; }
   var x=relWork.getContext("2d", { willReadFrequently:true });
   x.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
-  var d=x.getImageData(0, 0, W, H), p=d.data, x0=W, y0=H, x1=-1, y1=-1;
-  for (var i=0, j=0; i<p.length; i+=4, j++){   // 노란색(빨강·초록 높고 파랑 낮음)만 남깁니다. 빨간 커튼·피부·흰 옷·초록 초점 상자는 빠집니다
-    var r=p[i], g=p[i+1], b=p[i+2], on = r>170 && g>140 && b<110 && r-b>90 && g-b>60 && Math.abs(r-g)<80;
-    p[i+3] = on ? 255 : 0;
-    if (on){ var px=j%W, py=(j/W)|0; if (px<x0) x0=px; if (px>x1) x1=px; if (py<y0) y0=py; if (py>y1) y1=py; }
+  var p=x.getImageData(0, 0, W, H).data, n=0;
+  for (var i=0; i<p.length; i+=4){   // 노란색(빨강·초록 높고 파랑 낮음). 빨간 커튼·피부·흰 옷·초록 초점 상자는 빠집니다
+    var r=p[i], g=p[i+1], b=p[i+2];
+    if (r>170 && g>140 && b<110 && r-b>90 && g-b>60 && Math.abs(r-g)<80) n++;
   }
-  if (x1 < 0 || (x1-x0+1)*(y1-y0+1) < 20){ if (c.width) c.width=0; return false; }   // 타이머가 없으면(노란 점이 거의 없으면) 숨김
-  x.putImageData(d, 0, 0);
-  var bw=x1-x0+1, bh=y1-y0+1;
-  if (c.width!==bw || c.height!==bh){ c.width=bw; c.height=bh; } else k.clearRect(0, 0, bw, bh);
-  k.drawImage(relWork, x0, y0, bw, bh, 0, 0, bw, bh);   // 노란 시계·숫자만 딱 잘라서
-  var fw=Math.max(st.clientWidth, st.clientHeight*cw/vh);   // 화면에 보이는 3:2 카메라 그림의 폭(칸을 덮게 키운 크기)
-  var hpx=Math.min(st.clientHeight*0.18, 2 * bh*2 * fw/cw);   // 카메라 화면에서 보이던 크기의 2배, 칸 높이의 18% 까지
-  c.style.height=hpx+"px"; c.style.width=(hpx*bw/bh)+"px";
-  return true;
+  return n >= 20;
+}
+function relTimerShow(num){
+  var el=$("relNum");
+  if (num === null){ el.hidden=true; return; }
+  el.style.fontSize=Math.round(Math.min($("stage").clientHeight*0.42, $("stage").clientWidth*0.6))+"px";
+  el.textContent=num; el.hidden=false;
+}
+function relTimerReset(){ relT.start=0; relT.seen=0; relTimerShow(null); }
+/* 미리보기 한 장마다 부릅니다. 타이머가 도는 중이면 true (카메라의 원래 숫자를 덮습니다) */
+function relTimerTick(video, vw, vh, cw){
+  var now=Date.now(), on=relTimerYellow(video, vw, vh, cw);
+  if (on){ if (!relT.start) relT.start=now; relT.seen=now; }
+  else if (!relT.start || now-relT.seen > REL_GAP){ relTimerReset(); return false; }
+  var num = REL_FROM - Math.floor((now-relT.start)/REL_STEP);
+  relTimerShow(num >= 0 ? num : null);
+  return num >= 0;
 }
 /* 자른 카메라 그림(src, 가운데 3:2)의 타이머 자리에서 노란 글씨를 지웁니다. 가장자리 번짐까지 3칸 넓혀 잡고,
    같은 줄의 왼쪽·오른쪽 깨끗한 색을 이어 메웁니다. 미리보기용이라 옅은 자국은 남을 수 있습니다. */
@@ -1551,7 +1559,7 @@ function drawSlimGuide(cv){
 function stopStream(){
   if (S.stream){ S.stream.getTracks().forEach(function(t){ t.stop(); }); S.stream=null; }
   $("live").width = 0;   // 남겨두면 다음 손님이 카메라를 켤 때 앞 손님 얼굴이 잠깐 보입니다
-  $("relTimer").width = 0;   // 타이머 숫자도 같이 지웁니다
+  relTimerReset();   // 타이머 숫자도 같이 지웁니다
 }
 /* 쓸 카메라를 고릅니다. 관리자가 정해둔 카메라가 없거나 빠졌으면
    기본 카메라로 돌아갑니다. */
@@ -1869,7 +1877,7 @@ function runSession(){
     if (S.cancelled || S.enough || i>=total) return Promise.resolve();
     return waitRelease(i+1, total).then(function(c){
       if (S.cancelled || S.enough) return;
-      if (!c){ say("카메라 화면을 읽지 못했습니다."); S.cancelled=true; return; }
+      if (!c){ $("cancelBtn").click(); say("카메라 화면을 읽지 못했습니다. 처음부터 다시 해 주세요.", 8000); return; }   // 뒤로가기가 없어도 갇히지 않게 첫 화면으로
       S.shots.push(c); ticks(S.shots.length,total);
       if (TETHER.on){ TETHER.queue.push(S.shots.length-1); tetherAssign(); }
       // 방금 찍은 사진을 오른쪽 아래 PREVIEW 에 칸 모양으로(하루필름처럼, 사용자 요청)
@@ -2150,6 +2158,7 @@ function openPick(L, need, imported){
   pickLookId = null; lookChips();      // 손님마다 첫 번째 색감에서 시작합니다
   $("pickGrid").innerHTML = "";
   S.shots.forEach(function(c, i){ addPickThumb(c, i); });
+  $("pickQuit").hidden = !CFG.backBtn;
   show(pickEl);
   fitPick();
   fitGrid();
@@ -2336,6 +2345,8 @@ $("pickDone").addEventListener("click", function(){
     freeCanvases(S.shots.filter(function(c){ return shots.indexOf(c) < 0; })); S.shots=[];
     setPrintPage(P.L);
     openSticker(blob, origs);   // 스티커 화면을 거쳐 결과 화면으로 갑니다(사용자 요청)
+  }).catch(function(e){
+    $("pickDone").disabled=false; say("사진을 만들지 못했습니다. 다시 눌러 주세요. ("+(e && e.message || e)+")", 6000);
   });
 });
 
@@ -2630,7 +2641,7 @@ function beautyMode(on){
   $("beautyBox").hidden = !on;
   document.querySelector("#shoot .shoot-l").hidden = on;
   // 뷰티 화면은 아래 그만두기 대신 촬영 시작을 두고, 2분이 지나면 촬영을 저절로 시작합니다(사용자 요청)
-  $("beautyGo").hidden = !on; $("cancelBtn").hidden = on;
+  $("beautyGo").hidden = !on; $("cancelBtn").hidden = on || !CFG.backBtn;   // 촬영을 시작하면 설정을 켠 경우에만 "뒤로가기"
   if (on){ stopShootTimer(); S.stopShootTimer = countdown($("shootTimer"), startShooting); beautyDetector(); }
 }
 (function(){
@@ -2642,6 +2653,12 @@ function beautyMode(on){
     B[k]=Number(e.target.value); $("bto_"+k).textContent=e.target.value;
   });
   $("beautyReset").addEventListener("click", beautyReset);
+  // 뷰티 화면 "뒤로": 고른 프레임·색을 그대로 두고 색 고르기 화면으로(사용자 요청)
+  $("beautyBack").addEventListener("click", function(){
+    var f=CFG.filter, fc=frameColorId;
+    $("cancelBtn").click();   // 카메라·시계를 끄고 첫 화면으로 가는 것까지 같습니다
+    frameColorId=fc; CFG.filter=f; pressOnly($("filters"), f); applyPreviewFilter(); buildFramePick(); showStep(3);
+  });
   $("beautyGo").addEventListener("click", startShooting);
 })();
 var BFACE_LIB = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
@@ -3558,9 +3575,11 @@ $("pvToggle").addEventListener("click", function(){
     .catch(function(err){ say(cameraError(err),5000); });
 });
 
+$("backOn").addEventListener("change", function(e){ CFG.backBtn = e.target.checked; saveConfig(); });
 function renderAdmin(){
   scanCameras();
   $("relayUrl").value = (CFG.instax && CFG.instax.relay) || "";
+  $("backOn").checked = !!CFG.backBtn;
   renderFilterList();
   renderFilterFields();
   renderFaceSliders();
