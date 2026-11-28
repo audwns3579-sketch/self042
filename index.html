@@ -243,7 +243,6 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 
 /* ── 2-1. 사진 고르기 ─────────────────── */
 #pick{justify-content:flex-start;align-items:center;gap:14px;padding-block:18px;overflow-y:auto}
-/* 제목과 남은 시간을 한 줄에(사용자 요청: 구석에 작아 안 보임) */
 .pick-head{display:flex;align-items:baseline;justify-content:center;gap:32px;margin-top:auto}
 .pick-timer{margin:0;color:var(--fg);white-space:nowrap}
 .pick-timer small{font-size:20px;color:var(--muted)}
@@ -270,7 +269,7 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
   /* 목록 폭은 예전(100vw - 464px)의 80%, 미리보기 칸은 640px 까지 키움(사용자 요청, 1920 화면에서 목록 1165·필름 614×860) */
   .pick-left .pick-grid{width:calc((100vw - 464px) * .8);max-width:100%;flex:1 1 auto;min-height:0;max-height:none;align-content:start}
   .pick-side{flex:0 0 clamp(300px,34vw,640px);gap:14px;justify-content:center}
-  #pick #pickPrev{max-height:calc(100vh - 220px);max-width:100%}
+  #pick #pickPrev{max-height:calc(100vh - 290px);max-width:100%}   /* 위 남은 시간 한 줄 자리(70px)만큼 줄임 */
   .pick-actions .btn{min-height:64px;font-size:20px}
 }
 #pickPrev{cursor:grab;touch-action:none;max-height:62vh;max-width:min(42vw,100%);width:auto;background:#fff;border-radius:3px;
@@ -593,8 +592,6 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
   <!-- MEI 부스처럼: 왼쪽에 찍은 사진, 오른쪽에 컷 수 · 인화 미리보기 · 인화 버튼 -->
   <div class="pick-head">
     <h2 class="ask" id="pickTitle">사진 고르기</h2>
-    <!-- 고르기 제한 시간 2분(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
-    <p class="pick-timer" id="pickTimer" hidden><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
   </div>
   <div class="pick-body">
     <div class="pick-left">
@@ -602,6 +599,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       <p class="guide"><span>안내</span>누른 순서대로 <b>1번 칸, 2번 칸</b>에 들어갑니다. 다시 누르면 빠집니다.<br>미리보기 사진을 <b>끌면 옮겨지고</b>, <b>두 손가락으로 벌리면 커집니다.</b></p>
     </div>
     <div class="pick-side">
+      <!-- 고르기 제한 시간 2분, 오른쪽 미리보기 위(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
+      <p class="pick-timer" id="pickTimer" hidden><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
       <div class="chips" id="pickOrient" role="group" aria-label="방향" hidden></div>
       <!-- 컷 수 버튼 옆에 색감 버튼(관리자에서 '고르기 화면에 보이기'를 켠 색감, 최대 3개) -->
       <div class="pick-row" id="pickRow">
