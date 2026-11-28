@@ -538,7 +538,7 @@ $("confirmYes").addEventListener("click", function(){
 function show(el){ [setupEl,shootEl,pickEl,stickerEl,resultEl,adminEl].forEach(function(s){ s.hidden = s!==el; });
   if (el===setupEl && typeof showStep==="function"){
     frameColorId = null;   // 다음 손님은 예전 색부터
-    S.copies = 1;   // 장수도 손님마다 1장부터
+    S.copies = 1; S.partial = 0; S.told = 0;   // 장수·알림도 손님마다 처음부터
     CFG.filter = shownFilters()[0].id;   // 색도 손님마다 원본부터(앞 손님이 흑백·비비드를 골라도, 사용자 요청)
     showStep(firstStep()); orientFixed = false; syncIdle();
   }
@@ -3073,31 +3073,46 @@ $("motionBtns").addEventListener("click", function(e){
   for (var i=0;i<shotCount(L);i++) shots.push(motionSample(i));
   renderPrint(L, shots).then(function(blob){ openPrintMotion(L, blob, null, true); });   // 보기: 끝나면 관리자 화면으로
 });
-/* 장수 고르기와 가격(사용자 요청). 앱은 돈을 받지 않고 보여주기만 합니다. */
-var PRICE = 10000, MAX_COPIES = 5;
-var INSTAX_GAP = 15000;   // 인스탁스는 앞 장이 다 나올 틈을 두고 다음 장을 보냅니다(바로 보내면 프린터가 "바쁨"으로 거절할 수 있음)
-function copies(){ return S.copies || 1; }
+/* 장수 고르기와 가격(사용자 요청). 앱은 돈을 받지 않고 보여주기만 합니다. 인스탁스는 1장만 뽑습니다. */
+var PRICE = 10000, ADD_PRICE = 2000, MAX_COPIES = 5;   // 첫 장 값, 추가 한 장 값
+function copies(){ return instaxOn() ? 1 : S.copies || 1; }
+function priceOf(n){ return PRICE + ADD_PRICE*(n-1); }
 function won(v){ return v.toLocaleString("ko-KR")+"원"; }
+/* 인화를 누르면 아이맥에 "프레임 · 장수 · 금액" 알림 창을 띄웁니다(POST /notify, 확인을 누를 때까지 남음, 사용자 요청).
+   손님마다 한 번만 띄웁니다. 실패해 다시 누를 때는 금액이 바뀐 경우에만 다시 띄우고, 일부만 나간 뒤에는 띄우지 않습니다(두 번 받지 않게).
+   알림이 실패해도 인화는 그대로 보냅니다. */
+function notifyOwner(){
+  var n = copies(), sum = priceOf(n), L = enabledLayouts()[cur];
+  if (S.partial || S.told === sum) return;
+  var name = (instaxOn() ? "인스탁스 " : "") + ((L && L.name) || "");
+  S.told = sum;
+  fetch(relayUrl()+"/notify?name="+encodeURIComponent(name)+"&n="+n+"&won="+sum, { method:"POST" })
+    .then(function(r){ return r.json(); })
+    .then(function(j){ if (!j.ok) throw new Error(j.error); })
+    .catch(function(e){ if (S.told === sum) S.told = 0; console.warn("아이맥 알림을 못 띄웠습니다", e); });
+}
 [["qtyMinus",-1],["qtyPlus",1]].forEach(function(a){
   $(a[0]).addEventListener("click", function(){
-    if (S.printing || S.printed) return;
+    if (S.printing || S.printed || S.partial) return;
     S.copies = Math.min(MAX_COPIES, Math.max(1, copies()+a[1])); syncPrintBtn();
   });
 });
 /* 같은 사진을 n 장 보냅니다. 앞 장 대답이 온 뒤에 다음 장을 보내고, 하나라도 실패하면 거기서 멈춥니다(e.sent = 보낸 장수). */
-function sendCopies(n, gap, send){
+function sendCopies(n, send){
   var sent = 0;
   function next(){
     return send().then(function(r){ return r.json(); }).then(function(j){
       if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
-      if (++sent < n) return new Promise(function(res){ setTimeout(res, gap); }).then(next);
+      if (++sent < n) return next();
     });
   }
   return next().catch(function(e){ e.sent = sent; throw e; });
 }
-/* 일부만 나갔으면 남은 장수만 남겨, 다시 눌러도 더 뽑히지 않게 합니다. 돌려주는 글은 안내 앞에 붙입니다. */
+/* 일부만 나갔으면 남은 장수만 남기고 장수를 못 바꾸게 해, 다시 눌러도 더 뽑히지 않게 합니다. 금액은 처음 장수 그대로 둡니다.
+   돌려주는 글은 안내 앞에 붙입니다. */
 function copiesLeft(n, sent){
   if (!sent) return "";
+  S.partial = S.partial || n;
   S.copies = n - sent;
   return n+"장 중 "+sent+"장만 보냈습니다.\n";
 }
@@ -3105,6 +3120,7 @@ function copiesLeft(n, sent){
    한 번 보내면 다시 찍기 전까지 막습니다(두 번 눌러 두 장 나가는 것을 막으려는 것). */
 function printEpson(){
   if (!S.blob || S.printing || S.printed) return;
+  notifyOwner();
   S.printing = true; syncPrintBtn();
   var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 모션이 있으면 안내 글 대신 모션을 보여줍니다
   if (motion) hush(); else say("인화를 보내는 중입니다…", 0);
@@ -3112,7 +3128,7 @@ function printEpson(){
   var L = enabledLayouts()[cur], fc = L && frameColor(L);
   var bg = fc ? fc.bg.slice(1) : !L ? "FFFFFF" : L.style === "film" ? "1B1713" : L.style === "bw" ? BW_STRIP.slice(1) : L.bg ? L.bg.slice(1) : "FFFFFF";
   var mine = S.blob, n = copies(), url = relayUrl();   // 대답은 첫 화면으로 간 뒤에 올 수 있어서, 지금 손님 것일 때만 화면을 바꿉니다
-  sendCopies(n, 0, function(){ return fetch(url+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:mine }); })
+  sendCopies(n, function(){ return fetch(url+"/print-epson?bg="+bg, { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:mine }); })
     .then(function(){
       if (S.blob !== mine) return;
       S.printed = true;
@@ -3188,13 +3204,16 @@ function printInstax(){
   if (!S.blob || S.printing || S.printed) return;
   var url = relayUrl();
   if (!url){ say("관리자 화면에 인화 맥 주소를 넣어주세요.", 6000); return; }
+  notifyOwner();
   S.printing = true; syncPrintBtn();
   var motion = openPrintMotion(enabledLayouts()[cur], null, goHome);   // 엡손과 같이 인화 모션 → 다 되면 5초 뒤 첫 화면(사용자 요청)
   if (motion) hush(); else say("인화하는 중입니다…", 0);
-  var mine = S.blob, n = copies();   // 인스탁스는 다 뽑은 뒤에 대답해서(한 장에 1분 40초쯤) 보통 첫 화면으로 간 뒤에 옵니다. 지금 손님 것일 때만 화면을 바꿉니다
+  var mine = S.blob;   // 인스탁스는 다 뽑은 뒤에 대답해서(1분 40초쯤) 보통 첫 화면으로 간 뒤에 옵니다. 지금 손님 것일 때만 화면을 바꿉니다
   instaxTone(S.blob, enabledLayouts()[cur])
-    .then(function(b){ return sendCopies(n, INSTAX_GAP, function(){ return fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:b }); }); })
-    .then(function(){
+    .then(function(b){ return fetch(url+"/print", { method:"POST", headers:{"Content-Type":"image/jpeg"}, body:b }); })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j.ok) throw new Error(j.error || "인화하지 못했습니다.");
       // 한 번 뽑으면 다시 찍기 전까지 막습니다. 필름을 아끼려는 것입니다.
       printerStatus();   // 남은 필름 수를 새로 읽습니다
       if (S.blob !== mine) return;
@@ -3204,9 +3223,9 @@ function printInstax(){
     .catch(function(e){
       if (S.blob !== mine){ console.warn("앞 손님 인화 실패", e); return; }
       closePrintMotion();
-      say(copiesLeft(n, e.sent) + (e instanceof TypeError
+      say(e instanceof TypeError
         ? "인화 맥에 연결하지 못했습니다. 맥에서 인화 서버가 켜져 있는지 확인하세요."
-        : "인화하지 못했습니다. "+e.message), 9000);
+        : "인화하지 못했습니다. "+e.message, 9000);
     })
     .then(function(){ if (S.blob === mine){ S.printing = false; syncPrintBtn(); } });
 }
@@ -3214,11 +3233,13 @@ function syncPrintBtn(){
   var b=$("printBtn");
   var direct = instaxOn() || !!relayUrl();   // 맥으로 바로 뽑는 경우(인스탁스·엡손)
   var sent = !!(S.printing || S.printed);
-  $("qtyBox").hidden = $("priceLine").hidden = !direct;   // 장수는 맥으로 바로 뽑을 때만 지킬 수 있습니다
+  $("qtyBox").hidden = !direct || instaxOn();   // 장수는 맥으로 바로 뽑을 때만 지킬 수 있고, 인스탁스는 1장만
+  $("priceLine").hidden = !direct;
   $("qtyNum").textContent = copies()+"장";
-  $("priceLine").textContent = "1장 "+won(PRICE)+" · 합계 "+won(PRICE*copies());
-  $("qtyMinus").disabled = sent || copies() <= 1;
-  $("qtyPlus").disabled = sent || copies() >= MAX_COPIES;
+  $("priceLine").textContent = "1장 "+won(PRICE) + (instaxOn() ? "" : " · 추가 1장당 "+won(ADD_PRICE)+" · 합계 "+won(priceOf(S.partial || copies())));
+  var fixed = sent || !!S.partial;
+  $("qtyMinus").disabled = fixed || copies() <= 1;
+  $("qtyPlus").disabled = fixed || copies() >= MAX_COPIES;
   b.textContent = !direct ? "인쇄" : S.printed ? "인화했습니다" : "인화";
   b.disabled = (direct && sent) || (!!DRIVE_URL && !S.qrOk);   // QR 이 떠야 인화할 수 있습니다(사용자 요청)
   $("mirrorBtn").hidden = !S.res;
