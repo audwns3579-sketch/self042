@@ -296,7 +296,8 @@ body[data-theme=light] .stk-btn{border-color:#D5D8DE;box-shadow:0 6px 14px rgba(
 #sticker .ask{font-size:clamp(22px,2.6vw,32px)}
 .stk-body{display:flex;gap:40px;align-items:center;justify-content:center;flex-wrap:wrap}
 .stk-stage{position:relative;line-height:0;overflow:hidden;touch-action:none;border-radius:3px}
-#stkImg{max-height:calc(100vh - 140px);max-width:min(90vw,100%);box-shadow:0 0 0 1px var(--line);pointer-events:none}
+#stkImg{max-height:calc(100vh - 220px);   /* 제목 위 남은 시간 한 줄 자리(76px)만큼 줄임 */
+  max-width:min(90vw,100%);box-shadow:0 0 0 1px var(--line);pointer-events:none}
 /* 가로 인화(폴라로이드 6컷 가로)도 조정·스티커 칸과 한 줄에 들어가게: 양옆 칸 400+360, 사이 40×2, 여백 */
 @media (min-width:1200px){#stkImg{max-width:calc(100vw - 960px)}}
 .stk{position:absolute;cursor:grab;user-select:none;-webkit-user-drag:none}
@@ -619,6 +620,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
 
 <!-- 2-2. 스티커 — 손님이 인화 사진 위에 스티커를 붙입니다(사용자 요청, 2분) -->
 <section class="screen" id="sticker" hidden>
+  <!-- 남은 시간은 제목 바로 위, 고르기 화면과 같은 한 줄 모양(사용자 요청). countdown 이 b·.bar i 를 씁니다 -->
+  <p class="pick-timer" id="stkTimer"><small>남은 시간</small> <b>2:00</b><span class="bar"><i></i></span></p>
   <h2 class="ask">스티커와 조정으로 꾸며 보세요</h2>
   <div class="stk-body">
     <!-- 조정(노출·대비·채도·그레인)은 사진 왼쪽에 늘 보이게. "처음 값으로"는 막대 밑에서 잘못 눌려 제목 옆 작은 버튼으로(사용자 요청) -->
@@ -640,8 +643,6 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;
       <div id="stkPane">
         <div class="chips stk-tabs" id="stkTabs" role="group" aria-label="스티커 종류"></div>
         <div class="stk-pal" id="stkPal" role="group" aria-label="스티커"></div>
-        <!-- 남은 시간은 안내 문구 바로 위(사용자 요청, 예전 오른쪽 맨 위) -->
-        <div class="timer" id="stkTimer"><small>남은 시간</small><b>2:00</b><span class="bar"><i></i></span></div>
         <p class="guide"><span>안내</span>스티커를 누르면 <b>사진 가운데</b>에 붙어요. 끌어서 옮기고, 모서리 손잡이로 <b>✕ 빼기 · ↻ 돌리기 · ⤡ 크기</b>를 바꿔요.</p>
       </div>
       <button class="btn primary" id="stkDone">다음</button>
